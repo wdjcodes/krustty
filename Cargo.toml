@@ -1,0 +1,7 @@
+[workspace]
+members = ["krustty", "krustty_rc"]
+resolver = "3"
+package.license = "MIT"
+package.edition = "2024"
+package.authors = ["wdjcodes"]
+package.repository = "https://github.com/wdjcodes/krustty"
