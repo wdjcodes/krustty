@@ -1,5 +1,5 @@
 [workspace]
-members = ["krustty", "krustty_rc"]
+members = ["krustty"]
 resolver = "3"
 package.license = "MIT"
 package.edition = "2024"
