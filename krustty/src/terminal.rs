@@ -59,7 +59,6 @@ pub fn write_pty(
         }
         chunk.commit_all();
     }
-    Ok(())
 }
 
 pub fn read_pty(mut std_out: Box<dyn Read + Send>) {

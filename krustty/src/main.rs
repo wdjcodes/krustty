@@ -10,7 +10,7 @@ const MAX_LINE_LENGTH: usize = 4096;
 mod terminal;
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let mut term = Terminal::spawn("zsh");
+    let mut term = Terminal::spawn("zsh")?;
 
     let mut buffer = String::with_capacity(MAX_LINE_LENGTH);
     let stdin = std::io::stdin();
