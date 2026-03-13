@@ -32,8 +32,10 @@ impl ApplicationHandler<Event> for Application {
     fn resumed(&mut self, event_loop: &event_loop::ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
-        self.windows
-            .insert(window.id(), pollster::block_on(WindowContext::new(window)));
+        self.windows.insert(
+            window.id(),
+            pollster::block_on(WindowContext::new(window)).unwrap(),
+        );
     }
 
     fn window_event(
@@ -71,7 +73,7 @@ struct WindowContext {
 }
 
 impl WindowContext {
-    pub async fn new(window: Arc<Window>) -> Self {
+    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -79,7 +81,7 @@ impl WindowContext {
             ..Default::default()
         });
 
-        let surface = instance.create_surface(window.clone()).unwrap();
+        let surface = instance.create_surface(window.clone())?;
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -87,8 +89,7 @@ impl WindowContext {
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
-            .await
-            .unwrap();
+            .await?;
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -99,8 +100,7 @@ impl WindowContext {
                 memory_hints: Default::default(),
                 trace: wgpu::Trace::Off,
             })
-            .await
-            .unwrap();
+            .await?;
 
         let surface_caps = surface.get_capabilities(&adapter);
         // Shader code in this tutorial assumes an sRGB surface texture. Using a different
@@ -123,14 +123,14 @@ impl WindowContext {
             desired_maximum_frame_latency: 2,
         };
 
-        Self {
+        Ok(Self {
             window,
             surface,
             device,
             queue,
             config,
             is_surface_configured: false,
-        }
+        })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {

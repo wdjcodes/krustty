@@ -8,34 +8,32 @@ use rtrb::{Consumer, Producer, RingBuffer};
 
 pub struct Terminal {
     _pty_reader: JoinHandle<()>,
-    _pty_writer: JoinHandle<()>,
+    _pty_writer: JoinHandle<anyhow::Result<()>>,
     child: Box<dyn Child + Send + Sync>,
     pub input: Producer<u8>,
 }
 
 impl Terminal {
-    pub fn spawn(cmd: &str) -> Self {
-        let pty = NativePtySystem::default()
-            .openpty(PtySize {
-                rows: 24,
-                cols: 80,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .unwrap();
+    pub fn spawn(cmd: &str) -> anyhow::Result<Self> {
+        let pty = NativePtySystem::default().openpty(PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        })?;
         let cmd = CommandBuilder::new(cmd);
-        let child = pty.slave.spawn_command(cmd).unwrap();
+        let child = pty.slave.spawn_command(cmd)?;
         drop(pty.slave);
 
-        let std_in = pty.master.take_writer().unwrap();
-        let std_out = pty.master.try_clone_reader().unwrap();
+        let std_in = pty.master.take_writer()?;
+        let std_out = pty.master.try_clone_reader()?;
         let (writer, reader) = RingBuffer::<u8>::new(4096);
-        Self {
+        Ok(Self {
             _pty_reader: thread::spawn(move || read_pty(std_out)),
             _pty_writer: thread::spawn(move || write_pty(std_in, reader)),
             child,
             input: writer,
-        }
+        })
     }
 
     pub fn close(mut self) {
@@ -46,18 +44,22 @@ impl Terminal {
     }
 }
 
-pub fn write_pty(mut std_in: Box<dyn Write + Send>, mut reader: Consumer<u8>) {
+pub fn write_pty(
+    mut std_in: Box<dyn Write + Send>,
+    mut reader: Consumer<u8>,
+) -> anyhow::Result<()> {
     loop {
-        let chunk = reader.read_chunk(reader.slots()).unwrap();
+        let chunk = reader.read_chunk(reader.slots())?;
         let (slice1, slice2) = chunk.as_slices();
         if !slice1.is_empty() {
-            std_in.write_all(slice1).unwrap();
+            std_in.write_all(slice1)?;
             if !slice2.is_empty() {
-                std_in.write_all(slice2).unwrap();
+                std_in.write_all(slice2)?;
             }
         }
         chunk.commit_all();
     }
+    Ok(())
 }
 
 pub fn read_pty(mut std_out: Box<dyn Read + Send>) {
