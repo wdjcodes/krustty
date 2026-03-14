@@ -1,13 +1,14 @@
 use rtrb::CopyToUninit;
 use winit::event_loop::EventLoop;
 
+mod grid;
+mod terminal;
 mod ui;
 
 use crate::{terminal::Terminal, ui::Application};
 
 const MAX_LINE_LENGTH: usize = 4096;
 
-mod terminal;
 fn main() -> anyhow::Result<()> {
     env_logger::init();
     let mut term = Terminal::spawn("zsh")?;

@@ -3,6 +3,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use crate::grid::Grid;
 use portable_pty::{Child, CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use rtrb::{Consumer, Producer, RingBuffer};
 
@@ -29,7 +30,7 @@ impl Terminal {
         let std_out = pty.master.try_clone_reader()?;
         let (writer, reader) = RingBuffer::<u8>::new(4096);
         Ok(Self {
-            _pty_reader: thread::spawn(move || read_pty(std_out)),
+            _pty_reader: thread::spawn(move || read_pty(std_out, Grid::new(120, 24, 1000))),
             _pty_writer: thread::spawn(move || write_pty(std_in, reader)),
             child,
             input: writer,
@@ -61,13 +62,16 @@ pub fn write_pty(
     }
 }
 
-pub fn read_pty(mut std_out: Box<dyn Read + Send>) {
+pub fn read_pty(mut std_out: Box<dyn Read + Send>, mut grid: Grid) {
     let mut buffer = [0u8; 1024];
     loop {
         match std_out.read(&mut buffer) {
             Ok(0) => break, // EOF
             Ok(n) => {
                 let output = String::from_utf8_lossy(&buffer[..n]);
+                for c in output.chars() {
+                    grid.write_at_cursor(c);
+                }
                 print!("{}", output); // Print to stdout for visibility.
             }
             Err(e) => {
