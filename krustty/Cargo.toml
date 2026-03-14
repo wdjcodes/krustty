@@ -1,6 +1,6 @@
 [package]
 name = "krustty"
-version = "0.0.0"
+version = "0.0.1"
 description = "Rust based terminal emulator"
 edition.workspace = true
 license.workspace = true
