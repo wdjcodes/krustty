@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 mod font;
 
+use rust_fontconfig::FcPattern;
 use wgpu::util::DeviceExt;
 use winit::{
     application::ApplicationHandler,
@@ -292,21 +293,30 @@ impl WindowContext {
         });
 
         let atlas_buffer_size = wgpu::Extent3d {
-            width: 4096,
-            height: 4096,
+            width: 1024,
+            height: 1024,
             depth_or_array_layers: 1,
         };
 
-        let mut glyph_cache = GlyphCache::new(4096, CELL_WIDTH as _, CELL_HEIGHT as _);
-        // TODO: replace hardcoded path dependency with configurable and/or automated font file resolution
-        let font = fontdue::Font::from_bytes(
-            include_bytes!("/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf") as &[u8],
-            Default::default(),
-        )
-        .unwrap();
+        let mut glyph_cache = GlyphCache::new(1024, CELL_WIDTH as _, CELL_HEIGHT as _);
+        let fc = rust_fontconfig::FcFontCache::build();
+        let mut trace = Vec::new();
+        // TODO: Probably want to bundle a fallback font
+        let font_match = fc
+            .query(
+                &FcPattern {
+                    monospace: rust_fontconfig::PatternMatch::True,
+                    ..Default::default()
+                },
+                &mut trace,
+            )
+            .expect("Could not find a monospace font, krustty is not currently shipped with one");
 
-        let (metrics, _) = font.rasterize('\u{2588}', 16.0);
-        println!("{metrics:?}");
+        let font_bytes = fc
+            .get_font_bytes(&font_match.id)
+            .expect("Error loading font");
+
+        let font = fontdue::Font::from_bytes(font_bytes, Default::default()).unwrap();
 
         let mut instances = vec![];
         let mut x = 0.0;
@@ -351,12 +361,6 @@ impl WindowContext {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-
-        println!(
-            "glyph_cache.len: {}, glyph_cache.atlas_size: {}",
-            glyph_cache.pixel_data.len(),
-            glyph_cache.atlas_size
-        );
 
         queue.write_texture(
             wgpu::TexelCopyTextureInfo {
