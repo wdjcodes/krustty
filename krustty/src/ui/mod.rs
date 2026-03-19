@@ -1,8 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 mod font;
+mod texture;
 
-use rust_fontconfig::FcPattern;
 use wgpu::util::DeviceExt;
 use winit::{
     application::ApplicationHandler,
@@ -137,7 +137,7 @@ struct WindowContext {
     vertex_buff: wgpu::Buffer,
     instances: Vec<CellInstance>,
     instance_buff: wgpu::Buffer,
-    _glyph_atlas: wgpu::Texture,
+    _glyph_atlas: texture::Texture,
     _cache: GlyphCache,
     atlas_bind_group: wgpu::BindGroup,
     view_bind_group: wgpu::BindGroup,
@@ -175,9 +175,6 @@ impl WindowContext {
             .await?;
 
         let surface_caps = surface.get_capabilities(&adapter);
-        // Shader code in this tutorial assumes an sRGB surface texture. Using a different
-        // one will result in all the colors coming out darker. If you want to support non
-        // sRGB surfaces, you'll need to account for that when drawing to the frame.
         let surface_format = surface_caps
             .formats
             .iter()
@@ -271,15 +268,12 @@ impl WindowContext {
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList, // 1.
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw, // 2.
+                front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
                 polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
                 unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
             depth_stencil: None,
@@ -292,31 +286,8 @@ impl WindowContext {
             cache: None,
         });
 
-        let atlas_buffer_size = wgpu::Extent3d {
-            width: 1024,
-            height: 1024,
-            depth_or_array_layers: 1,
-        };
-
         let mut glyph_cache = GlyphCache::new(1024, CELL_WIDTH as _, CELL_HEIGHT as _);
-        let fc = rust_fontconfig::FcFontCache::build();
-        let mut trace = Vec::new();
-        // TODO: Probably want to bundle a fallback font
-        let font_match = fc
-            .query(
-                &FcPattern {
-                    monospace: rust_fontconfig::PatternMatch::True,
-                    ..Default::default()
-                },
-                &mut trace,
-            )
-            .expect("Could not find a monospace font, krustty is not currently shipped with one");
-
-        let font_bytes = fc
-            .get_font_bytes(&font_match.id)
-            .expect("Error loading font");
-
-        let font = fontdue::Font::from_bytes(font_bytes, Default::default()).unwrap();
+        glyph_cache.load_ascii();
 
         let mut instances = vec![];
         let mut x = 0.0;
@@ -324,7 +295,6 @@ impl WindowContext {
         let atlas_size = glyph_cache.atlas_size as f32;
 
         for c in '!'..='~' {
-            glyph_cache.load_glyph(&font, c, 16.0);
             let glyph = glyph_cache.cache.get(&c).unwrap();
             let ax = glyph.x as f32 / atlas_size;
             let ay = glyph.y as f32 / atlas_size;
@@ -350,56 +320,35 @@ impl WindowContext {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Glyph Atlas"),
-            size: atlas_buffer_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            // We use R8Unorm because we only need one channel (Alpha/Coverage)
-            format: wgpu::TextureFormat::R8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &glyph_cache.pixel_data,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(glyph_cache.atlas_size),
-                rows_per_image: Some(glyph_cache.atlas_size),
-            },
-            atlas_buffer_size,
-        );
-
         let size = window.inner_size();
 
         println!("{:?}", size);
 
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
         let view_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("View Params Buffer"),
             contents: bytemuck::cast_slice(&[size.width as f32, size.height as f32]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        let texture = texture::Texture::from_bytes(
+            &device,
+            &queue,
+            &glyph_cache.pixel_data,
+            "Atlas texture",
+            glyph_cache.atlas_size,
+            glyph_cache.atlas_size,
+        );
+
         let atlas_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&texture_sampler),
+                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
                 },
             ],
             label: Some("atlas_bind_group"),
@@ -489,7 +438,6 @@ impl WindowContext {
             render_pass.draw(0..6, 0..self.instances.len() as u32);
         }
 
-        // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
@@ -504,7 +452,6 @@ pub struct CellInstance {
     pub screen_pos: [f32; 2],
     // Where in the Texture Atlas is the character? (UV coordinates)
     pub atlas_uv: [f32; 4],
-    // Colors unpacked from your Grid state
     pub fg_color: [f32; 4],
     pub bg_color: [f32; 4],
 }
@@ -538,10 +485,4 @@ impl CellInstance {
             ],
         }
     }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct ViewParams {
-    view_proj: [f32; 2],
 }
