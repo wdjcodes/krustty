@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 mod font;
 mod texture;
 
+use rtrb::CopyToUninit;
 use wgpu::util::DeviceExt;
 use winit::{
     application::ApplicationHandler,
@@ -11,7 +12,7 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::ui::font::GlyphCache;
+use crate::{terminal::Terminal, ui::font::GlyphCache};
 
 pub struct Application {
     windows: HashMap<WindowId, WindowContext>,
@@ -23,6 +24,8 @@ pub enum Event {
     #[allow(unused)]
     WakeUp,
     CloseRequested,
+    GridUpdate,
+    Input(String),
 }
 
 impl Application {
@@ -38,9 +41,10 @@ impl ApplicationHandler<Event> for Application {
     fn resumed(&mut self, event_loop: &event_loop::ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        let term = Terminal::spawn("zsh", self.proxy.clone()).expect("Failed to create terminal");
         self.windows.insert(
             window.id(),
-            pollster::block_on(WindowContext::new(window)).unwrap(),
+            pollster::block_on(WindowContext::new(window, term)).unwrap(),
         );
     }
 
@@ -52,7 +56,10 @@ impl ApplicationHandler<Event> for Application {
     ) {
         let window = self.windows.get_mut(&window_id).unwrap();
         match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::CloseRequested => {
+                window.term.close();
+                event_loop.exit()
+            }
             WindowEvent::Resized(size) => window.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
                 let _ = window.render();
@@ -65,6 +72,57 @@ impl ApplicationHandler<Event> for Application {
         match event {
             Event::WakeUp => (),
             Event::CloseRequested => event_loop.exit(),
+            Event::GridUpdate => {
+                // TODO: Refactor and better separate and propagate dependencies so we can get a window id or some
+                // other method here to identify the correct window
+                let id = *self.windows.keys().next().unwrap();
+                let window = self.windows.get_mut(&id).unwrap();
+                {
+                    let grid = window.term.grid.lock().expect("Failed to lock grid");
+                    window.instances.clear();
+                    for i in 0..std::cmp::min(24, grid.rows()) {
+                        let row = grid.get_row(i);
+                        for j in 0..80 {
+                            let cell = row.get_cell(j);
+                            if let Some(glyph) = window._cache.cache.get(&cell.c) {
+                                let atlas_size = window._cache.atlas_size as f32;
+                                let ax = glyph.x as f32 / atlas_size;
+                                let ay = glyph.y as f32 / atlas_size;
+                                let az = ax + CELL_WIDTH / atlas_size;
+                                let aw = ay + CELL_HEIGHT / atlas_size;
+                                window.instances.push(CellInstance {
+                                    screen_pos: [
+                                        j as f32 * CELL_WIDTH,
+                                        window.window.inner_size().height as f32
+                                            - i as f32 * CELL_HEIGHT,
+                                    ],
+                                    atlas_uv: [ax, ay, az, aw],
+                                    fg_color: [200.0, 200.0, 200.0, 1.0],
+                                    bg_color: [0.0; 4],
+                                });
+                            }
+                            if cell.c == '\n' {
+                                break;
+                            }
+                        }
+                    }
+                }
+                println!("Len: {}", window.instances.len());
+                let _ = window.render();
+            }
+            Event::Input(input) => {
+                // TODO: Refactor and better separate and propagate dependencies so we can get a window id or some
+                // other method here to identify the correct window
+                let id = *self.windows.keys().next().unwrap();
+                let window = self.windows.get_mut(&id).unwrap();
+                if let Ok(mut chunk) = window.term.input.write_chunk_uninit(input.len()) {
+                    let (slice1, slice2) = chunk.as_mut_slices();
+                    let wrap = slice1.len();
+                    input.as_bytes()[..wrap].copy_to_uninit(slice1);
+                    input.as_bytes()[wrap..].copy_to_uninit(slice2);
+                    unsafe { chunk.commit(input.len()) };
+                }
+            }
         }
     }
 }
@@ -142,10 +200,11 @@ struct WindowContext {
     atlas_bind_group: wgpu::BindGroup,
     view_bind_group: wgpu::BindGroup,
     is_surface_configured: bool,
+    pub term: Terminal,
 }
 
 impl WindowContext {
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
+    pub async fn new(window: Arc<Window>, term: Terminal) -> anyhow::Result<Self> {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -289,35 +348,35 @@ impl WindowContext {
         let mut glyph_cache = GlyphCache::new(1024, CELL_WIDTH as _, CELL_HEIGHT as _);
         glyph_cache.load_ascii();
 
-        let mut instances = vec![];
-        let mut x = 0.0;
-        let mut y = 0.0;
-        let atlas_size = glyph_cache.atlas_size as f32;
+        let instances = bytemuck::zeroed_vec(80 * 24);
+        // let mut x = 0.0;
+        // let mut y = 0.0;
+        // let atlas_size = glyph_cache.atlas_size as f32;
 
-        for c in '!'..='~' {
-            let glyph = glyph_cache.cache.get(&c).unwrap();
-            let ax = glyph.x as f32 / atlas_size;
-            let ay = glyph.y as f32 / atlas_size;
-            let az = ax + CELL_WIDTH / atlas_size;
-            let aw = ay + CELL_HEIGHT / atlas_size;
-            instances.push(CellInstance {
-                screen_pos: [x, y],
-                atlas_uv: [ax, ay, az, aw],
-                fg_color: [255.0, 255.0, 255.0, 1.0],
-                bg_color: [255.0, 255.0, 255.0, 0.0],
-            });
-            if x + CELL_WIDTH >= window.inner_size().width as f32 {
-                x = 0.0;
-            } else {
-                x += CELL_WIDTH;
-            }
-            y += if x == 0.0 { CELL_HEIGHT } else { 0.0 };
-        }
+        // for c in '!'..='~' {
+        //     let glyph = glyph_cache.cache.get(&c).unwrap();
+        //     let ax = glyph.x as f32 / atlas_size;
+        //     let ay = glyph.y as f32 / atlas_size;
+        //     let az = ax + CELL_WIDTH / atlas_size;
+        //     let aw = ay + CELL_HEIGHT / atlas_size;
+        //     instances.push(CellInstance {
+        //         screen_pos: [x, y],
+        //         atlas_uv: [ax, ay, az, aw],
+        //         fg_color: [255.0, 255.0, 255.0, 1.0],
+        //         bg_color: [255.0, 255.0, 255.0, 0.0],
+        //     });
+        //     if x + CELL_WIDTH >= window.inner_size().width as f32 {
+        //         x = 0.0;
+        //     } else {
+        //         x += CELL_WIDTH;
+        //     }
+        //     y += if x == 0.0 { CELL_HEIGHT } else { 0.0 };
+        // }
 
         let instance_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&instances),
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
         let size = window.inner_size();
@@ -378,6 +437,7 @@ impl WindowContext {
             _cache: glyph_cache,
             view_bind_group,
             instances,
+            term,
         })
     }
 
@@ -391,7 +451,7 @@ impl WindowContext {
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        self.window.request_redraw();
+        // self.window.request_redraw();
 
         // We can't render unless the surface is configured
         if !self.is_surface_configured {
@@ -407,37 +467,48 @@ impl WindowContext {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
-
         {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    depth_slice: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.1,
-                            b: 0.1,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-                multiview_mask: None,
-            });
-            render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, &self.view_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.atlas_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buff.slice(..));
-            render_pass.set_vertex_buffer(1, self.instance_buff.slice(..));
-            render_pass.draw(0..6, 0..self.instances.len() as u32);
-        }
+            let _grid = self.term.grid.lock();
+            println!(
+                "self.instances.len: {}",
+                self.instances.len() * std::mem::size_of::<CellInstance>()
+            );
+            self.queue.write_buffer(
+                &self.instance_buff,
+                0,
+                bytemuck::cast_slice(&self.instances),
+            );
 
+            {
+                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("Render Pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        depth_slice: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.1,
+                                g: 0.1,
+                                b: 0.1,
+                                a: 1.0,
+                            }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    occlusion_query_set: None,
+                    timestamp_writes: None,
+                    multiview_mask: None,
+                });
+                render_pass.set_pipeline(&self.pipeline);
+                render_pass.set_bind_group(0, &self.view_bind_group, &[]);
+                render_pass.set_bind_group(1, &self.atlas_bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.vertex_buff.slice(..));
+                render_pass.set_vertex_buffer(1, self.instance_buff.slice(..));
+                render_pass.draw(0..6, 0..self.instances.len() as u32);
+            }
+        }
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
