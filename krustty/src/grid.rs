@@ -38,10 +38,10 @@ bitflags! {
 /// Memory footprint is kept as small as possible since we will have thousands of these.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cell {
-    c: char,
-    fg: Color,
-    bg: Color,
-    flags: CellFlags,
+    pub c: char,
+    pub fg: Color,
+    pub bg: Color,
+    pub flags: CellFlags,
 }
 
 impl Default for Cell {
@@ -70,6 +70,10 @@ impl Row {
             cells: vec![Cell::default(); columns],
             is_wrapped: false,
         }
+    }
+
+    pub fn get_cell(&self, idx: usize) -> &Cell {
+        &self.cells[idx]
     }
 }
 
@@ -121,6 +125,7 @@ impl Grid {
     }
 
     pub fn write_at_cursor(&mut self, c: char) {
+        println!("C: {} Cursor: {:?}", c, self.cursor);
         self.rows[self.cursor.0].cells[self.cursor.1].c = c;
         self.advance_cursor();
     }
@@ -132,5 +137,13 @@ impl Grid {
             self.rows.push_front(Row::new(self.width));
             self.cursor.1 = 0;
         }
+    }
+
+    pub fn get_row(&self, idx: usize) -> &Row {
+        &self.rows[idx]
+    }
+
+    pub fn rows(&self) -> usize {
+        self.rows.len()
     }
 }
