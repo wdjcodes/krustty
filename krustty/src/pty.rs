@@ -9,7 +9,7 @@ use portable_pty::{Child, CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use rtrb::{Consumer, Producer, RingBuffer};
 use winit::event_loop::EventLoopProxy;
 
-pub struct Terminal {
+pub struct Pty {
     _pty_reader: JoinHandle<()>,
     _pty_writer: JoinHandle<anyhow::Result<()>>,
     child: Box<dyn Child + Send + Sync>,
@@ -17,7 +17,7 @@ pub struct Terminal {
     pub input: Producer<u8>,
 }
 
-impl Terminal {
+impl Pty {
     pub fn spawn(cmd: &str, event_loop: EventLoopProxy<Event>) -> anyhow::Result<Self> {
         let pty = NativePtySystem::default().openpty(PtySize {
             rows: 24,
