@@ -12,7 +12,7 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::{terminal::Terminal, ui::font::GlyphCache};
+use crate::{pty::Pty, ui::font::GlyphCache};
 
 pub struct Application {
     windows: HashMap<WindowId, WindowContext>,
@@ -41,7 +41,7 @@ impl ApplicationHandler<Event> for Application {
     fn resumed(&mut self, event_loop: &event_loop::ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
-        let term = Terminal::spawn("zsh", self.proxy.clone()).expect("Failed to create terminal");
+        let term = Pty::spawn("zsh", self.proxy.clone()).expect("Failed to create terminal");
         self.windows.insert(
             window.id(),
             pollster::block_on(WindowContext::new(window, term)).unwrap(),
@@ -200,11 +200,11 @@ struct WindowContext {
     atlas_bind_group: wgpu::BindGroup,
     view_bind_group: wgpu::BindGroup,
     is_surface_configured: bool,
-    pub term: Terminal,
+    pub term: Pty,
 }
 
 impl WindowContext {
-    pub async fn new(window: Arc<Window>, term: Terminal) -> anyhow::Result<Self> {
+    pub async fn new(window: Arc<Window>, term: Pty) -> anyhow::Result<Self> {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
