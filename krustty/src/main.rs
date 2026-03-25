@@ -1,7 +1,9 @@
 use winit::event_loop::EventLoop;
 
+mod ansi;
 mod grid;
 mod pty;
+mod terminal;
 mod ui;
 
 use crate::ui::Application;

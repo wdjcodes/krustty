@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 mod font;
 mod texture;
@@ -12,7 +15,7 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::{pty::Pty, ui::font::GlyphCache};
+use crate::{ansi::AnsiParser, pty::Pty, terminal::Terminal, ui::font::GlyphCache};
 
 pub struct Application {
     windows: HashMap<WindowId, WindowContext>,
@@ -41,10 +44,9 @@ impl ApplicationHandler<Event> for Application {
     fn resumed(&mut self, event_loop: &event_loop::ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
-        let term = Pty::spawn("zsh", self.proxy.clone()).expect("Failed to create terminal");
         self.windows.insert(
             window.id(),
-            pollster::block_on(WindowContext::new(window, term)).unwrap(),
+            pollster::block_on(WindowContext::new(window, self.proxy.clone())).unwrap(),
         );
     }
 
@@ -57,7 +59,8 @@ impl ApplicationHandler<Event> for Application {
         let window = self.windows.get_mut(&window_id).unwrap();
         match event {
             WindowEvent::CloseRequested => {
-                window.term.close();
+                window.pty.close();
+                self.windows.remove(&window_id);
                 event_loop.exit()
             }
             WindowEvent::Resized(size) => window.resize(size.width, size.height),
@@ -78,7 +81,8 @@ impl ApplicationHandler<Event> for Application {
                 let id = *self.windows.keys().next().unwrap();
                 let window = self.windows.get_mut(&id).unwrap();
                 {
-                    let grid = window.term.grid.lock().expect("Failed to lock grid");
+                    let mut term = window.term.lock().expect("Failed to lock terminal");
+                    let grid = &mut term.grid;
                     window.instances.clear();
                     for i in 0..std::cmp::min(24, grid.rows()) {
                         let row = grid.get_row(i);
@@ -115,7 +119,7 @@ impl ApplicationHandler<Event> for Application {
                 // other method here to identify the correct window
                 let id = *self.windows.keys().next().unwrap();
                 let window = self.windows.get_mut(&id).unwrap();
-                if let Ok(mut chunk) = window.term.input.write_chunk_uninit(input.len()) {
+                if let Ok(mut chunk) = window.pty.input.write_chunk_uninit(input.len()) {
                     let (slice1, slice2) = chunk.as_mut_slices();
                     let wrap = slice1.len();
                     input.as_bytes()[..wrap].copy_to_uninit(slice1);
@@ -200,12 +204,18 @@ struct WindowContext {
     atlas_bind_group: wgpu::BindGroup,
     view_bind_group: wgpu::BindGroup,
     is_surface_configured: bool,
-    pub term: Pty,
+    pty: Pty,
+    pub term: Arc<Mutex<Terminal>>,
 }
 
 impl WindowContext {
-    pub async fn new(window: Arc<Window>, term: Pty) -> anyhow::Result<Self> {
+    pub async fn new(
+        window: Arc<Window>,
+        event_loop: EventLoopProxy<Event>,
+    ) -> anyhow::Result<Self> {
         let size = window.inner_size();
+        let term = Arc::new(Mutex::new(Terminal::new(event_loop.clone())));
+        let pty = Pty::spawn("zsh", AnsiParser::new(term.clone())).expect("Failed to spawn pty");
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
@@ -438,6 +448,7 @@ impl WindowContext {
             view_bind_group,
             instances,
             term,
+            pty,
         })
     }
 
@@ -468,7 +479,7 @@ impl WindowContext {
                 label: Some("Render Encoder"),
             });
         {
-            let _grid = self.term.grid.lock();
+            let _term = self.term.lock();
             println!(
                 "self.instances.len: {}",
                 self.instances.len() * std::mem::size_of::<CellInstance>()
