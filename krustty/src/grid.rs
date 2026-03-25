@@ -131,7 +131,6 @@ impl Grid {
     }
 
     pub fn write_at_cursor(&mut self, c: char) {
-        println!("C: {} Cursor: {:?}", c, self.cursor);
         self.rows[self.cursor.row].cells[self.cursor.col].c = c;
         self.advance_cursor(1);
     }
