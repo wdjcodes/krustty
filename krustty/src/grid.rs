@@ -77,22 +77,28 @@ impl Row {
     }
 }
 
+#[derive(Default, Debug)]
+pub struct Cursor {
+    pub col: usize,
+    pub row: usize,
+}
+
 /// Main terminal Grid
 #[derive(Debug)]
 pub struct Grid {
     /// All rows including active viewport, scrollback, and scrollahead
-    rows: VecDeque<Row>,
+    pub rows: VecDeque<Row>,
     /// Maximum number of rows to store before they get dropped
     #[expect(unused)]
     max_rows: usize,
     /// Current number of columns
-    width: usize,
+    pub width: usize,
     /// Current number of rows in the active viewport
-    height: usize,
+    pub height: usize,
     /// Current offset into history from which viewport starts
-    view_offset: usize,
+    pub view_offset: usize,
     /// The offset into the grid where the cursor currently is
-    cursor: (usize, usize),
+    pub cursor: Cursor,
 }
 
 impl Grid {
@@ -108,7 +114,7 @@ impl Grid {
             width,
             height,
             view_offset: 0,
-            cursor: (0, 0),
+            cursor: Default::default(),
         }
     }
 
@@ -126,17 +132,33 @@ impl Grid {
 
     pub fn write_at_cursor(&mut self, c: char) {
         println!("C: {} Cursor: {:?}", c, self.cursor);
-        self.rows[self.cursor.0].cells[self.cursor.1].c = c;
-        self.advance_cursor();
+        self.rows[self.cursor.row].cells[self.cursor.col].c = c;
+        self.advance_cursor(1);
     }
 
-    fn advance_cursor(&mut self) {
-        if self.cursor.1 < self.width - 1 {
-            self.cursor.1 += 1;
+    pub fn advance_cursor(&mut self, cols: usize) {
+        if self.cursor.col + cols < self.width {
+            self.cursor.col += cols;
         } else {
             self.rows.push_front(Row::new(self.width));
-            self.cursor.1 = 0;
+            self.cursor.col = 0;
         }
+    }
+
+    pub fn line_feed(&mut self) {
+        if self.cursor.row == 0 {
+            self.rows.push_front(Row::new(self.width));
+        } else {
+            self.cursor.row -= 1;
+        }
+    }
+
+    pub fn carriage_return(&mut self) {
+        self.cursor.col = 0;
+    }
+
+    pub fn left(&mut self) {
+        self.cursor.col = self.cursor.col.saturating_sub(1);
     }
 
     pub fn get_row(&self, idx: usize) -> &Row {

@@ -1,24 +1,21 @@
 use std::{
     io::{Read, Write},
-    sync::{Arc, Mutex},
     thread::{self, JoinHandle},
 };
 
-use crate::{grid::Grid, ui::Event};
+use crate::ansi::AnsiParser;
 use portable_pty::{Child, CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use rtrb::{Consumer, Producer, RingBuffer};
-use winit::event_loop::EventLoopProxy;
 
 pub struct Pty {
     _pty_reader: JoinHandle<()>,
     _pty_writer: JoinHandle<anyhow::Result<()>>,
     child: Box<dyn Child + Send + Sync>,
-    pub grid: Arc<Mutex<Grid>>,
     pub input: Producer<u8>,
 }
 
 impl Pty {
-    pub fn spawn(cmd: &str, event_loop: EventLoopProxy<Event>) -> anyhow::Result<Self> {
+    pub fn spawn(cmd: &str, performer: AnsiParser) -> anyhow::Result<Self> {
         let pty = NativePtySystem::default().openpty(PtySize {
             rows: 24,
             cols: 80,
@@ -32,13 +29,10 @@ impl Pty {
         let std_in = pty.master.take_writer()?;
         let std_out = pty.master.try_clone_reader()?;
         let (writer, reader) = RingBuffer::<u8>::new(4096);
-        let grid = Arc::new(Mutex::new(Grid::new(120, 23, 1000)));
-        let shadow_grid = grid.clone();
         Ok(Self {
-            _pty_reader: thread::spawn(move || read_pty(std_out, shadow_grid, event_loop)),
+            _pty_reader: thread::spawn(move || read_pty(std_out, performer)),
             _pty_writer: thread::spawn(move || write_pty(std_in, reader)),
             child,
-            grid,
             input: writer,
         })
     }
@@ -68,28 +62,14 @@ pub fn write_pty(
     }
 }
 
-pub fn read_pty(
-    mut std_out: Box<dyn Read + Send>,
-    grid: Arc<Mutex<Grid>>,
-    event_loop: EventLoopProxy<Event>,
-) {
+pub fn read_pty(mut std_out: Box<dyn Read + Send>, mut performer: AnsiParser) {
+    let mut parser = vte::Parser::new();
     let mut buffer = [0u8; 1024];
     loop {
         match std_out.read(&mut buffer) {
             Ok(0) => break, // EOF
             Ok(n) => {
-                let output = String::from_utf8_lossy(&buffer[..n]);
-
-                {
-                    let mut g = grid.lock().expect("failed to lock the grid");
-                    for c in output.chars() {
-                        print!("{c}");
-                        g.write_at_cursor(c);
-                    }
-                }
-                if event_loop.send_event(Event::GridUpdate).is_err() {
-                    break;
-                }
+                parser.advance(&mut performer, &buffer[..n]);
             }
             Err(e) => {
                 eprintln!("Error reading from PTY: {}", e);
