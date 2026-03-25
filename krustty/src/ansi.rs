@@ -69,6 +69,7 @@ impl Perform for AnsiParser {
         _ignore: bool,
         _action: char,
     ) {
+        println!("Csi Dispatch: {:?} action: {}", _params, _action);
     }
 
     fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, _byte: u8) {}

@@ -38,10 +38,8 @@ impl Pty {
     }
 
     pub fn close(&mut self) {
-        println!("Waiting for Bash to exit...");
         self.child.kill().unwrap();
-        let status = self.child.wait().unwrap();
-        println!("Bash exited with status: {:?}", status);
+        let _status = self.child.wait().unwrap();
     }
 }
 

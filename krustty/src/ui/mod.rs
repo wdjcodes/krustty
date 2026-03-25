@@ -10,7 +10,7 @@ use rtrb::CopyToUninit;
 use wgpu::util::DeviceExt;
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    event::{ElementState, WindowEvent},
     event_loop::{self, EventLoop, EventLoopProxy},
     window::{Window, WindowId},
 };
@@ -26,9 +26,7 @@ pub struct Application {
 pub enum Event {
     #[allow(unused)]
     WakeUp,
-    CloseRequested,
     GridUpdate,
-    Input(String),
 }
 
 impl Application {
@@ -63,6 +61,30 @@ impl ApplicationHandler<Event> for Application {
                 self.windows.remove(&window_id);
                 event_loop.exit()
             }
+            WindowEvent::KeyboardInput {
+                device_id: _,
+                event,
+                is_synthetic: _,
+            } => {
+                // TODO: Refactor and better separate and propagate dependencies so we can get a window id or some
+                // other method here to identify the correct window
+                if event.state != ElementState::Released {
+                    return;
+                }
+
+                if let Some(smol_text) = event.text {
+                    let text = smol_text.as_bytes();
+                    let id = *self.windows.keys().next().unwrap();
+                    let window = self.windows.get_mut(&id).unwrap();
+                    if let Ok(mut chunk) = window.pty.input.write_chunk_uninit(text.len()) {
+                        let (slice1, slice2) = chunk.as_mut_slices();
+                        let wrap = slice1.len();
+                        text[..wrap].copy_to_uninit(slice1);
+                        text[wrap..].copy_to_uninit(slice2);
+                        unsafe { chunk.commit(text.len()) };
+                    }
+                }
+            }
             WindowEvent::Resized(size) => window.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
                 let _ = window.render();
@@ -71,19 +93,19 @@ impl ApplicationHandler<Event> for Application {
         }
     }
 
-    fn user_event(&mut self, event_loop: &event_loop::ActiveEventLoop, event: Event) {
+    fn user_event(&mut self, _event_loop: &event_loop::ActiveEventLoop, event: Event) {
         match event {
             Event::WakeUp => (),
-            Event::CloseRequested => event_loop.exit(),
             Event::GridUpdate => {
                 // TODO: Refactor and better separate and propagate dependencies so we can get a window id or some
                 // other method here to identify the correct window
                 let id = *self.windows.keys().next().unwrap();
                 let window = self.windows.get_mut(&id).unwrap();
                 {
-                    let mut term = window.term.lock().expect("Failed to lock terminal");
-                    let grid = &mut term.grid;
+                    let term = window.term.lock().expect("Failed to lock terminal");
+                    let grid = &term.grid;
                     window.instances.clear();
+
                     for i in 0..std::cmp::min(24, grid.rows()) {
                         let row = grid.get_row(i);
                         for j in 0..80 {
@@ -97,13 +119,20 @@ impl ApplicationHandler<Event> for Application {
                                 window.instances.push(CellInstance {
                                     screen_pos: [
                                         j as f32 * CELL_WIDTH,
-                                        window.window.inner_size().height as f32
-                                            - i as f32 * CELL_HEIGHT,
+                                        (window.window.inner_size().height as f32
+                                            - i as f32 * CELL_HEIGHT)
+                                            - CELL_HEIGHT,
                                     ],
                                     atlas_uv: [ax, ay, az, aw],
                                     fg_color: [200.0, 200.0, 200.0, 1.0],
                                     bg_color: [0.0; 4],
                                 });
+                            } else {
+                                // println!(
+                                //     "Glyph not found: {} {:?}",
+                                //     cell.c,
+                                //     cell.c.to_string().as_bytes()
+                                // );
                             }
                             if cell.c == '\n' {
                                 break;
@@ -111,21 +140,7 @@ impl ApplicationHandler<Event> for Application {
                         }
                     }
                 }
-                println!("Len: {}", window.instances.len());
-                let _ = window.render();
-            }
-            Event::Input(input) => {
-                // TODO: Refactor and better separate and propagate dependencies so we can get a window id or some
-                // other method here to identify the correct window
-                let id = *self.windows.keys().next().unwrap();
-                let window = self.windows.get_mut(&id).unwrap();
-                if let Ok(mut chunk) = window.pty.input.write_chunk_uninit(input.len()) {
-                    let (slice1, slice2) = chunk.as_mut_slices();
-                    let wrap = slice1.len();
-                    input.as_bytes()[..wrap].copy_to_uninit(slice1);
-                    input.as_bytes()[wrap..].copy_to_uninit(slice2);
-                    unsafe { chunk.commit(input.len()) };
-                }
+                window.window.request_redraw();
             }
         }
     }
@@ -359,29 +374,6 @@ impl WindowContext {
         glyph_cache.load_ascii();
 
         let instances = bytemuck::zeroed_vec(80 * 24);
-        // let mut x = 0.0;
-        // let mut y = 0.0;
-        // let atlas_size = glyph_cache.atlas_size as f32;
-
-        // for c in '!'..='~' {
-        //     let glyph = glyph_cache.cache.get(&c).unwrap();
-        //     let ax = glyph.x as f32 / atlas_size;
-        //     let ay = glyph.y as f32 / atlas_size;
-        //     let az = ax + CELL_WIDTH / atlas_size;
-        //     let aw = ay + CELL_HEIGHT / atlas_size;
-        //     instances.push(CellInstance {
-        //         screen_pos: [x, y],
-        //         atlas_uv: [ax, ay, az, aw],
-        //         fg_color: [255.0, 255.0, 255.0, 1.0],
-        //         bg_color: [255.0, 255.0, 255.0, 0.0],
-        //     });
-        //     if x + CELL_WIDTH >= window.inner_size().width as f32 {
-        //         x = 0.0;
-        //     } else {
-        //         x += CELL_WIDTH;
-        //     }
-        //     y += if x == 0.0 { CELL_HEIGHT } else { 0.0 };
-        // }
 
         let instance_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -390,8 +382,6 @@ impl WindowContext {
         });
 
         let size = window.inner_size();
-
-        println!("{:?}", size);
 
         let view_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("View Params Buffer"),
@@ -462,8 +452,6 @@ impl WindowContext {
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        // self.window.request_redraw();
-
         // We can't render unless the surface is configured
         if !self.is_surface_configured {
             return Ok(());
@@ -479,11 +467,6 @@ impl WindowContext {
                 label: Some("Render Encoder"),
             });
         {
-            let _term = self.term.lock();
-            println!(
-                "self.instances.len: {}",
-                self.instances.len() * std::mem::size_of::<CellInstance>()
-            );
             self.queue.write_buffer(
                 &self.instance_buff,
                 0,
@@ -520,6 +503,7 @@ impl WindowContext {
                 render_pass.draw(0..6, 0..self.instances.len() as u32);
             }
         }
+        println!("Rendering");
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
