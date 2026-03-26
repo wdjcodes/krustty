@@ -58,7 +58,7 @@ impl Default for Cell {
 /// Represents a single horizontal line of text.
 #[derive(Clone, Debug)]
 pub struct Row {
-    cells: Vec<Cell>,
+    pub cells: Vec<Cell>,
     /// Indicates if this row wraps onto the next line (useful for window resizing).
     #[expect(unused)]
     is_wrapped: bool,

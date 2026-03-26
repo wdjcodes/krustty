@@ -24,6 +24,7 @@ impl Perform for AnsiParser {
     }
 
     fn execute(&mut self, byte: u8) {
+        println!("execute: 0x{:02x}", byte);
         let mut term = self
             .term
             .lock()
@@ -34,11 +35,9 @@ impl Perform for AnsiParser {
                 term.grid.line_feed();
             }
             b'\x0B' | b'\x0C' => {
-                // Line Feed (LF), VT, FF
                 term.grid.line_feed();
             }
             b'\r' => {
-                // Carriage Return (CR)
                 term.grid.carriage_return();
             }
             b'\x08' => {
@@ -54,25 +53,74 @@ impl Perform for AnsiParser {
     }
 
     fn hook(&mut self, _params: &vte::Params, _intermediates: &[u8], _ignore: bool, _action: char) {
+        println!("hook called");
     }
 
-    fn put(&mut self, _byte: u8) {}
+    fn put(&mut self, _byte: u8) {
+        println!("put called");
+    }
 
-    fn unhook(&mut self) {}
+    fn unhook(&mut self) {
+        println!("unhook called");
+    }
 
-    fn osc_dispatch(&mut self, _params: &[&[u8]], _bell_terminated: bool) {}
+    fn osc_dispatch(&mut self, _params: &[&[u8]], _bell_terminated: bool) {
+        println!("osc called");
+    }
 
     fn csi_dispatch(
         &mut self,
-        _params: &vte::Params,
+        params: &vte::Params,
         _intermediates: &[u8],
         _ignore: bool,
-        _action: char,
+        action: char,
     ) {
-        println!("Csi Dispatch: {:?} action: {}", _params, _action);
+        let mut term = self
+            .term
+            .lock()
+            .expect("Failed to lock the terminal during CSI dispatch");
+        match action {
+            'D' => {
+                let count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
+                term.grid.cursor.col = term.grid.cursor.col.saturating_sub(*count as usize);
+            }
+            // Erase in Line (EL)
+            'K' => {
+                // If no parameter is provided, it defaults to 0
+                let mode = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
+
+                match mode {
+                    0 => {
+                        term.clear_to_end();
+                    }
+                    1 => {
+                        term.clear_to_start();
+                    }
+                    2 => {
+                        term.clear_line();
+                    }
+                    _ => {} // Ignore unsupported modes
+                }
+            }
+
+            // Cursor Horizontal Absolute (CHA)
+            'G' | '`' => {
+                let target_col = params.iter().next().and_then(|p| p.first()).unwrap_or(&1);
+
+                // VT coordinates are 1-indexed. Rust arrays are 0-indexed.
+                let zero_indexed_col = (*target_col as usize).saturating_sub(1);
+                term.grid.cursor.col = zero_indexed_col.min(term.grid.width.saturating_sub(1));
+            }
+
+            _ => {
+                println!("Csi Dispatch: {:?}{:?}{}", _intermediates, params, action);
+            }
+        }
     }
 
-    fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, _byte: u8) {}
+    fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, _byte: u8) {
+        println!("esc called");
+    }
 
     fn terminated(&self) -> bool {
         false
