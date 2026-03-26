@@ -18,4 +18,27 @@ impl Terminal {
         self.grid.write_at_cursor(c);
         let _ = self.event_loop.send_event(Event::GridUpdate);
     }
+
+    pub fn clear_to_end(&mut self) {
+        let col = self.grid.cursor.col;
+        let row = self.grid.cursor.row;
+        for i in col..self.grid.width {
+            self.grid.rows[row].cells[i].c = ' ';
+        }
+    }
+
+    pub fn clear_to_start(&mut self) {
+        let col = self.grid.cursor.col;
+        let row = self.grid.cursor.row;
+        for i in 0..=col {
+            self.grid.rows[row].cells[i].c = ' ';
+        }
+    }
+
+    pub fn clear_line(&mut self) {
+        let row = self.grid.cursor.row;
+        for i in 0..self.grid.width {
+            self.grid.rows[row].cells[i].c = ' ';
+        }
+    }
 }

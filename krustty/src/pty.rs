@@ -67,6 +67,8 @@ pub fn read_pty(mut std_out: Box<dyn Read + Send>, mut performer: AnsiParser) {
         match std_out.read(&mut buffer) {
             Ok(0) => break, // EOF
             Ok(n) => {
+                #[cfg(debug_assertions)]
+                println!("{:?}", String::from_utf8_lossy(&buffer[0..n]).chars());
                 parser.advance(&mut performer, &buffer[..n]);
             }
             Err(e) => {
