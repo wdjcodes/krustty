@@ -15,7 +15,9 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::{ansi::AnsiParser, pty::Pty, terminal::Terminal, ui::font::GlyphCache};
+use crate::{
+    ansi::AnsiParser, color::DEFAULT_COLORS, pty::Pty, terminal::Terminal, ui::font::GlyphCache,
+};
 
 pub struct Application {
     windows: HashMap<WindowId, WindowContext>,
@@ -124,8 +126,18 @@ impl ApplicationHandler<Event> for Application {
                                             - CELL_HEIGHT,
                                     ],
                                     atlas_uv: [ax, ay, az, aw],
-                                    fg_color: [200.0, 200.0, 200.0, 1.0],
-                                    bg_color: [0.0; 4],
+                                    fg_color: [
+                                        cell.fg[0] as f32 / 255.0,
+                                        cell.fg[1] as f32 / 255.0,
+                                        cell.fg[2] as f32 / 255.0,
+                                        1.0,
+                                    ],
+                                    bg_color: [
+                                        cell.bg[0] as f32 / 255.0,
+                                        cell.bg[1] as f32 / 255.0,
+                                        cell.bg[2] as f32 / 255.0,
+                                        1.0,
+                                    ],
                                 });
                             } else {
                                 // println!(
@@ -482,9 +494,9 @@ impl WindowContext {
                         depth_slice: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.1,
-                                g: 0.1,
-                                b: 0.1,
+                                r: DEFAULT_COLORS.black[0] as f64 / 255.0,
+                                g: DEFAULT_COLORS.black[1] as f64 / 255.0,
+                                b: DEFAULT_COLORS.black[2] as f64 / 255.0,
                                 a: 1.0,
                             }),
                             store: wgpu::StoreOp::Store,
