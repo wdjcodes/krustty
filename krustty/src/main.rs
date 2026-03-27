@@ -1,6 +1,7 @@
 use winit::event_loop::EventLoop;
 
 mod ansi;
+mod color;
 mod grid;
 mod pty;
 mod terminal;

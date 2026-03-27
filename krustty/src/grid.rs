@@ -1,22 +1,24 @@
 use bitflags::bitflags;
 use std::collections::VecDeque;
 
-/// Represents the different ways a color can be defined in the terminal
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum Color {
-    /// The default foreground/background color specified by the user's theme.
-    #[default]
-    Default,
-    /// Standard 16 ANSI colors (e.g., Black, Red, Green, etc.).
-    #[expect(unused)]
-    Named(u8),
-    /// 256-color palette (xterm).
-    #[expect(unused)]
-    Indexed(u8),
-    /// 24-bit True Color (RGB).
-    #[expect(unused)]
-    Rgb { r: u8, g: u8, b: u8 },
-}
+use crate::color::{DEFAULT_COLORS, Rgb};
+
+// /// Represents the different ways a color can be defined in the terminal
+// #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+// pub enum Color {
+//     /// The default foreground/background color specified by the user's theme.
+//     #[default]
+//     Default,
+//     /// Standard 16 ANSI colors (e.g., Black, Red, Green, etc.).
+//     #[expect(unused)]
+//     Named(u8),
+//     /// 256-color palette (xterm).
+//     #[expect(unused)]
+//     Indexed(u8),
+//     /// 24-bit True Color (RGB).
+//     #[expect(unused)]
+//     Rgb { r: u8, g: u8, b: u8 },
+// }
 
 bitflags! {
     /// Text styling attributes
@@ -39,8 +41,8 @@ bitflags! {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cell {
     pub c: char,
-    pub fg: Color,
-    pub bg: Color,
+    pub fg: Rgb,
+    pub bg: Rgb,
     pub flags: CellFlags,
 }
 
@@ -48,8 +50,8 @@ impl Default for Cell {
     fn default() -> Self {
         Cell {
             c: ' ', // Empty space by default
-            fg: Color::Default,
-            bg: Color::Default,
+            fg: DEFAULT_COLORS.white,
+            bg: DEFAULT_COLORS.bright_black,
             flags: CellFlags::NONE,
         }
     }
@@ -130,8 +132,12 @@ impl Grid {
         self.view_offset = self.view_offset.saturating_sub(1);
     }
 
-    pub fn write_at_cursor(&mut self, c: char) {
-        self.rows[self.cursor.row].cells[self.cursor.col].c = c;
+    pub fn write_at_cursor(&mut self, c: char, fg: Rgb, bg: Rgb) {
+        let cell = &mut self.rows[self.cursor.row].cells[self.cursor.col];
+        cell.c = c;
+        cell.fg = fg;
+        cell.bg = bg;
+
         self.advance_cursor(1);
     }
 
