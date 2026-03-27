@@ -24,7 +24,6 @@ impl Perform for AnsiParser {
     }
 
     fn execute(&mut self, byte: u8) {
-        println!("execute: 0x{:02x}", byte);
         let mut term = self
             .term
             .lock()
@@ -120,10 +119,10 @@ impl Perform for AnsiParser {
                         106 => term.bg = DEFAULT_COLORS.bright_cyan,
                         107 => term.bg = DEFAULT_COLORS.bright_white,
 
-                        _ => {
+                        code => {
                             println!(
-                                "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
-                                intermediates, params, action
+                                "Unsupported SGR: Code: {} Intermediates: {:?} Params: {:?} Action: {}",
+                                code, intermediates, params, action
                             );
                         }
                     }

@@ -139,12 +139,6 @@ impl ApplicationHandler<Event> for Application {
                                         1.0,
                                     ],
                                 });
-                            } else {
-                                // println!(
-                                //     "Glyph not found: {} {:?}",
-                                //     cell.c,
-                                //     cell.c.to_string().as_bytes()
-                                // );
                             }
                             if cell.c == '\n' {
                                 break;
@@ -356,7 +350,6 @@ impl WindowContext {
                 module: &shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    // 4.
                     format: config.format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
@@ -515,7 +508,6 @@ impl WindowContext {
                 render_pass.draw(0..6, 0..self.instances.len() as u32);
             }
         }
-        println!("Rendering");
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
