@@ -77,4 +77,5 @@ pub fn read_pty(mut std_out: Box<dyn Read + Send>, mut performer: AnsiParser) {
             }
         }
     }
+    // TODO: Add event_loop.send(Event::CloseRequested)
 }
