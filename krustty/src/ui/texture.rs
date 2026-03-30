@@ -3,17 +3,11 @@ pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub size: wgpu::Extent3d,
 }
 
 impl Texture {
-    pub fn from_bytes(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        bytes: &[u8],
-        label: &str,
-        width: u32,
-        height: u32,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, label: &str, width: u32, height: u32) -> Self {
         let size = wgpu::Extent3d {
             width,
             height,
@@ -32,22 +26,6 @@ impl Texture {
             view_formats: &[],
         });
 
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            bytes,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(size.width),
-                rows_per_image: Some(size.height),
-            },
-            size,
-        );
-
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
 
@@ -55,6 +33,25 @@ impl Texture {
             texture,
             view,
             sampler,
+            size,
         }
+    }
+
+    pub fn write_texture(&self, queue: &wgpu::Queue, bytes: &[u8]) {
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            bytes,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(self.size.width),
+                rows_per_image: Some(self.size.height),
+            },
+            self.size,
+        );
     }
 }

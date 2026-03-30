@@ -1,6 +1,7 @@
 // We just pass the window width and height in pixels (e.g., 1920.0, 1080.0)
 struct Globals {
     surface_size: vec2<f32>,
+    cell_size: vec2<f32>,
 };
 @group(0) @binding(0) var<uniform> globals: Globals;
 
@@ -34,7 +35,7 @@ fn vs_main(
     var out: VertexOutput;
     
     // 1. Calculate the raw pixel position of this vertex
-    let pixel_pos = model.position + instance.surface_pos;
+    let pixel_pos = (model.position * globals.cell_size) + (instance.surface_pos * globals.cell_size);
     
     // 2. Convert pixel X to NDC X (-1.0 to 1.0)
     let ndc_x = (pixel_pos.x / globals.surface_size.x) * 2.0 - 1.0;
