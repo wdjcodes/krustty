@@ -17,7 +17,6 @@ use winit::{
 };
 
 use crate::{
-    ansi::AnsiParser,
     pty::Pty,
     terminal::Terminal,
     ui::{
@@ -33,9 +32,7 @@ pub struct Application {
 }
 
 pub enum Event {
-    #[allow(unused)]
     WakeUp,
-    GridUpdate,
 }
 
 impl Application {
@@ -104,8 +101,7 @@ impl ApplicationHandler<Event> for Application {
 
     fn user_event(&mut self, _event_loop: &event_loop::ActiveEventLoop, event: Event) {
         match event {
-            Event::WakeUp => (),
-            Event::GridUpdate => {
+            Event::WakeUp => {
                 let id = *self.windows.keys().next().unwrap();
                 let window = self.windows.get_mut(&id).unwrap();
                 window.window.request_redraw();
@@ -137,7 +133,7 @@ impl WindowContext {
     ) -> anyhow::Result<Self> {
         let size = window.inner_size();
         let term = Arc::new(Mutex::new(Terminal::new(event_loop.clone())));
-        let pty = Pty::spawn("zsh", AnsiParser::new(term.clone())).expect("Failed to spawn pty");
+        let pty = Pty::spawn("zsh", term.clone()).expect("Failed to spawn pty");
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,

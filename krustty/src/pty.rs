@@ -1,9 +1,10 @@
 use std::{
     io::{Read, Write},
+    sync::{Arc, Mutex},
     thread::{self, JoinHandle},
 };
 
-use crate::ansi::AnsiParser;
+use crate::{terminal::Terminal, ui::Event};
 use portable_pty::{Child, CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use rtrb::{Consumer, Producer, RingBuffer};
 
@@ -15,7 +16,7 @@ pub struct Pty {
 }
 
 impl Pty {
-    pub fn spawn(cmd: &str, performer: AnsiParser) -> anyhow::Result<Self> {
+    pub fn spawn(cmd: &str, term: Arc<Mutex<Terminal>>) -> anyhow::Result<Self> {
         let pty = NativePtySystem::default().openpty(PtySize {
             rows: 24,
             cols: 80,
@@ -30,7 +31,7 @@ impl Pty {
         let std_out = pty.master.try_clone_reader()?;
         let (writer, reader) = RingBuffer::<u8>::new(4096);
         Ok(Self {
-            _pty_reader: thread::spawn(move || read_pty(std_out, performer)),
+            _pty_reader: thread::spawn(move || read_pty(std_out, term)),
             _pty_writer: thread::spawn(move || write_pty(std_in, reader)),
             child,
             input: writer,
@@ -60,16 +61,20 @@ pub fn write_pty(
     }
 }
 
-pub fn read_pty(mut std_out: Box<dyn Read + Send>, mut performer: AnsiParser) {
+pub fn read_pty(mut std_out: Box<dyn Read + Send>, term: Arc<Mutex<Terminal>>) {
     let mut parser = vte::Parser::new();
     let mut buffer = [0u8; 1024];
     loop {
         match std_out.read(&mut buffer) {
             Ok(0) => break, // EOF
             Ok(n) => {
+                let mut terminal = term
+                    .lock()
+                    .expect("Could not lock terminal while reading pty");
                 #[cfg(debug_assertions)]
                 println!("{:?}", String::from_utf8_lossy(&buffer[0..n]).chars());
-                parser.advance(&mut performer, &buffer[..n]);
+                parser.advance(&mut *terminal, &buffer[..n]);
+                let _ = terminal.event_loop.send_event(Event::WakeUp);
             }
             Err(e) => {
                 eprintln!("Error reading from PTY: {}", e);
@@ -77,5 +82,4 @@ pub fn read_pty(mut std_out: Box<dyn Read + Send>, mut performer: AnsiParser) {
             }
         }
     }
-    // TODO: Add event_loop.send(Event::CloseRequested)
 }
