@@ -16,14 +16,20 @@ pub struct Pty {
 }
 
 impl Pty {
-    pub fn spawn(cmd: &str, term: Arc<Mutex<Terminal>>) -> anyhow::Result<Self> {
+    pub fn spawn(
+        cmd: &str,
+        term: Arc<Mutex<Terminal>>,
+        cols: u16,
+        rows: u16,
+    ) -> anyhow::Result<Self> {
         let pty = NativePtySystem::default().openpty(PtySize {
-            rows: 24,
-            cols: 80,
+            rows,
+            cols,
             pixel_width: 0,
             pixel_height: 0,
         })?;
-        let cmd = CommandBuilder::new(cmd);
+        let mut cmd = CommandBuilder::new(cmd);
+        cmd.env("TERM", "xterm-256color");
         let child = pty.slave.spawn_command(cmd)?;
         drop(pty.slave);
 

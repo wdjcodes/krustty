@@ -1,5 +1,5 @@
 use vte::Perform;
-use winit::event_loop::EventLoopProxy;
+use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy};
 
 use crate::{
     color::{DEFAULT_COLORS, Rgb},
@@ -16,8 +16,8 @@ pub struct Terminal {
 }
 
 impl Terminal {
-    pub fn new(event_loop: EventLoopProxy<Event>) -> Self {
-        let grid = Grid::new(120, 23, 1000);
+    pub fn new(event_loop: EventLoopProxy<Event>, width: usize, height: usize) -> Self {
+        let grid = Grid::new(width, height, 1000);
         Self {
             grid,
             event_loop,

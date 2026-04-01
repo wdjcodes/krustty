@@ -2,7 +2,10 @@ use std::rc::Rc;
 
 use wgpu::util::DeviceExt;
 
-use crate::{color::DEFAULT_COLORS, ui::texture::Texture};
+use crate::{
+    color::DEFAULT_COLORS,
+    ui::{CELL_HEIGHT, CELL_WIDTH, texture::Texture},
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -125,7 +128,11 @@ impl GridRenderer {
             cache: None,
         });
 
-        let instances = bytemuck::zeroed_vec(80 * 24);
+        let instances = bytemuck::zeroed_vec(
+            ((width / CELL_WIDTH as u32) * (height / CELL_HEIGHT as u32))
+                .try_into()
+                .expect("usize is too small"),
+        );
 
         let instance_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -135,7 +142,7 @@ impl GridRenderer {
 
         let globals = ShaderGlobals {
             surface_size: [width as f32, height as f32],
-            cell_size: [12.0, 20.0],
+            cell_size: [CELL_WIDTH, CELL_HEIGHT],
         };
 
         let globals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

@@ -132,8 +132,11 @@ impl WindowContext {
         event_loop: EventLoopProxy<Event>,
     ) -> anyhow::Result<Self> {
         let size = window.inner_size();
-        let term = Arc::new(Mutex::new(Terminal::new(event_loop.clone())));
-        let pty = Pty::spawn("zsh", term.clone()).expect("Failed to spawn pty");
+        let rows = (size.height / CELL_HEIGHT as u32) as usize;
+        let cols = (size.width / CELL_WIDTH as u32) as usize;
+        let term = Arc::new(Mutex::new(Terminal::new(event_loop.clone(), cols, rows)));
+        let pty =
+            Pty::spawn("zsh", term.clone(), cols as u16, rows as u16).expect("Failed to spawn pty");
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
@@ -244,10 +247,11 @@ impl WindowContext {
         let instances = &mut self.grid_render.instances;
         instances.clear();
 
-        for i in 0..std::cmp::min(24, grid.rows()) {
+        for i in 0..std::cmp::min(term.grid.height, grid.rows()) {
             let row = grid.get_row(i);
-            for j in 0..80 {
+            for j in 0..row.cells.len() {
                 let cell = row.get_cell(j);
+                // print!("{}", cell.c);
                 if let Some(glyph) = self._cache.cache.get(&cell.c) {
                     let atlas_size = self._cache.atlas_size as f32;
                     let ax = glyph.x as f32 / atlas_size;
@@ -258,7 +262,7 @@ impl WindowContext {
                         screen_pos: [
                             j as f32,
                             // TODO: Change this when a proper viewport is added
-                            29.0 - i as f32,
+                            (term.grid.height - i - 1) as f32,
                         ],
                         atlas_uv: [ax, ay, az, aw],
                         fg_color: [
@@ -279,6 +283,7 @@ impl WindowContext {
                     break;
                 }
             }
+            // println!();
         }
         self.grid_render.render_pass(&view, &mut encoder);
         self.queue.submit(std::iter::once(encoder.finish()));

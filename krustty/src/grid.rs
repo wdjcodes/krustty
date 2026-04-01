@@ -128,6 +128,7 @@ impl Grid {
         if self.cursor.col + cols < self.width {
             self.cursor.col += cols;
         } else {
+            self.rows[0].is_wrapped = true;
             self.rows.push_front(Row::new(self.width));
             self.cursor.col = 0;
         }
