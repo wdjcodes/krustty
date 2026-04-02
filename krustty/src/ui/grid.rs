@@ -15,16 +15,17 @@ pub struct ShaderGlobals {
 }
 
 pub struct GridRenderer {
-    pub _globals: ShaderGlobals,
+    pub globals: ShaderGlobals,
     pub instances: Vec<CellInstance>,
     instance_buff: wgpu::Buffer,
-    _device: Rc<wgpu::Device>,
+    device: Rc<wgpu::Device>,
     pipeline: wgpu::RenderPipeline,
     queue: Rc<wgpu::Queue>,
     pub atlas_texture: Texture,
     atlas_bind_group: wgpu::BindGroup,
     view_bind_group: wgpu::BindGroup,
     vertex_buff: wgpu::Buffer,
+    globals_buff: wgpu::Buffer,
 }
 
 impl GridRenderer {
@@ -129,9 +130,7 @@ impl GridRenderer {
         });
 
         let instances = bytemuck::zeroed_vec(
-            ((width / CELL_WIDTH as u32) * (height / CELL_HEIGHT as u32))
-                .try_into()
-                .expect("usize is too small"),
+            (width as usize / CELL_WIDTH as usize) * (height as usize / CELL_HEIGHT as usize),
         );
 
         let instance_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -145,7 +144,7 @@ impl GridRenderer {
             cell_size: [CELL_WIDTH, CELL_HEIGHT],
         };
 
-        let globals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let globals_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Global Params Buffer"),
             contents: bytemuck::bytes_of(&globals),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -172,13 +171,13 @@ impl GridRenderer {
             layout: &view_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(globals_buffer.as_entire_buffer_binding()),
+                resource: wgpu::BindingResource::Buffer(globals_buff.as_entire_buffer_binding()),
             }],
-            label: Some("atlas_bind_group"),
+            label: Some("view_bind_group"),
         });
 
         Self {
-            _device: device,
+            device,
             queue,
             instances,
             instance_buff,
@@ -187,7 +186,8 @@ impl GridRenderer {
             atlas_texture,
             atlas_bind_group,
             view_bind_group,
-            _globals: globals,
+            globals,
+            globals_buff,
         }
     }
 
@@ -225,6 +225,22 @@ impl GridRenderer {
         render_pass.set_vertex_buffer(0, self.vertex_buff.slice(..));
         render_pass.set_vertex_buffer(1, self.instance_buff.slice(..));
         render_pass.draw(0..6, 0..self.instances.len() as u32);
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.globals.surface_size = [width as f32, height as f32];
+        self.queue
+            .write_buffer(&self.globals_buff, 0, bytemuck::bytes_of(&self.globals));
+        self.instances = bytemuck::zeroed_vec(
+            (width as usize / CELL_WIDTH as usize) * (height as usize / CELL_HEIGHT as usize),
+        );
+        self.instance_buff = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: bytemuck::cast_slice(&self.instances),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            });
     }
 
     const VERTICES: &[Vertex] = &[

@@ -215,12 +215,24 @@ impl WindowContext {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        if width > 0 && height > 0 {
-            self.config.width = width;
-            self.config.height = height;
-            self.surface.configure(&self.device, &self.config);
-            self.is_surface_configured = true;
+        if width == 0 || height == 0 {
+            return;
         }
+        self.config.width = width;
+        self.config.height = height;
+        self.surface.configure(&self.device, &self.config);
+        self.is_surface_configured = true;
+
+        let mut term = self
+            .term
+            .lock()
+            .expect("Failed to lock terminal during resize");
+
+        let cols = width as usize / CELL_WIDTH as usize;
+        let rows = height as usize / CELL_HEIGHT as usize;
+        term.grid.resize(cols, rows);
+        let _ = self.pty.resize(cols as u16, rows as u16);
+        self.grid_render.resize(width, height);
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {

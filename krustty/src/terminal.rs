@@ -1,5 +1,5 @@
 use vte::Perform;
-use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy};
+use winit::event_loop::EventLoopProxy;
 
 use crate::{
     color::{DEFAULT_COLORS, Rgb},

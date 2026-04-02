@@ -5,13 +5,14 @@ use std::{
 };
 
 use crate::{terminal::Terminal, ui::Event};
-use portable_pty::{Child, CommandBuilder, NativePtySystem, PtySize, PtySystem};
+use portable_pty::{Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
 use rtrb::{Consumer, Producer, RingBuffer};
 
 pub struct Pty {
     _pty_reader: JoinHandle<()>,
     _pty_writer: JoinHandle<anyhow::Result<()>>,
     child: Box<dyn Child + Send + Sync>,
+    pub master: Box<dyn MasterPty + Send>,
     pub input: Producer<u8>,
 }
 
@@ -33,20 +34,31 @@ impl Pty {
         let child = pty.slave.spawn_command(cmd)?;
         drop(pty.slave);
 
-        let std_in = pty.master.take_writer()?;
-        let std_out = pty.master.try_clone_reader()?;
+        let master = pty.master;
+        let std_in = master.take_writer()?;
+        let std_out = master.try_clone_reader()?;
         let (writer, reader) = RingBuffer::<u8>::new(4096);
         Ok(Self {
             _pty_reader: thread::spawn(move || read_pty(std_out, term)),
             _pty_writer: thread::spawn(move || write_pty(std_in, reader)),
             child,
             input: writer,
+            master,
         })
     }
 
     pub fn close(&mut self) {
         self.child.kill().unwrap();
         let _status = self.child.wait().unwrap();
+    }
+
+    pub fn resize(&self, cols: u16, rows: u16) -> anyhow::Result<()> {
+        self.master.resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
     }
 }
 
