@@ -45,7 +45,6 @@ impl Default for Cell {
 pub struct Row {
     pub cells: Vec<Cell>,
     /// Indicates if this row wraps onto the next line (useful for window resizing).
-    #[expect(unused)]
     is_wrapped: bool,
 }
 
@@ -74,7 +73,6 @@ pub struct Grid {
     /// All rows including active viewport, scrollback, and scrollahead
     pub rows: VecDeque<Row>,
     /// Maximum number of rows to store before they get dropped
-    #[expect(unused)]
     max_rows: usize,
     /// Current number of columns
     pub width: usize,
@@ -101,6 +99,48 @@ impl Grid {
             view_offset: 0,
             cursor: Default::default(),
         }
+    }
+
+    pub fn resize(&mut self, width: usize, height: usize) {
+        let mut lines: VecDeque<Vec<Cell>> = VecDeque::with_capacity(self.rows());
+
+        for row in self.rows.iter_mut() {
+            let mut r = std::mem::take(&mut row.cells);
+            if row.is_wrapped {
+                let wrap = lines.pop_back().unwrap();
+                r.extend_from_slice(&wrap);
+            }
+            lines.push_back(r);
+        }
+
+        let mut new_rows = VecDeque::with_capacity(self.max_rows);
+        for line in lines.into_iter().rev() {
+            let mut start = 0;
+            let mut to_copy = line.len();
+            loop {
+                let mut cells = Vec::with_capacity(width);
+                let slice_len = std::cmp::min(to_copy, width);
+                cells.extend_from_slice(&line[start..start + slice_len]);
+                start += slice_len;
+                to_copy -= slice_len;
+                if to_copy == 0 {
+                    new_rows.push_front(Row {
+                        cells,
+                        is_wrapped: false,
+                    });
+                    break;
+                } else {
+                    new_rows.push_front(Row {
+                        cells,
+                        is_wrapped: true,
+                    });
+                }
+            }
+        }
+        self.rows = new_rows;
+        self.width = width;
+        self.height = height;
+        self.cursor = Cursor { col: 0, row: 0 };
     }
 
     #[expect(unused)]
