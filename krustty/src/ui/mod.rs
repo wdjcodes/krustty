@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+mod cursor;
 mod font;
 mod grid;
 mod texture;
@@ -20,6 +21,7 @@ use crate::{
     pty::Pty,
     terminal::Terminal,
     ui::{
+        cursor::CursorRenderer,
         font::GlyphCache,
         grid::{CellInstance, GridRenderer},
     },
@@ -120,7 +122,8 @@ struct WindowContext {
     queue: Rc<wgpu::Queue>,
     grid_render: GridRenderer,
     config: wgpu::SurfaceConfiguration,
-    _cache: GlyphCache,
+    cache: GlyphCache,
+    cursor_render: CursorRenderer,
     is_surface_configured: bool,
     pty: Pty,
     pub term: Arc<Mutex<Terminal>>,
@@ -200,6 +203,14 @@ impl WindowContext {
             .atlas_texture
             .write_texture(&queue, &glyph_cache.pixel_data);
 
+        let cursor_render = CursorRenderer::new(
+            device.clone(),
+            queue.clone(),
+            &config,
+            size.width,
+            size.height,
+        );
+
         Ok(Self {
             window,
             surface,
@@ -207,10 +218,11 @@ impl WindowContext {
             queue,
             config,
             is_surface_configured: false,
-            _cache: glyph_cache,
+            cache: glyph_cache,
             term,
             pty,
             grid_render: text_render,
+            cursor_render,
         })
     }
 
@@ -233,6 +245,7 @@ impl WindowContext {
         term.grid.resize(cols, rows);
         let _ = self.pty.resize(cols as u16, rows as u16);
         self.grid_render.resize(width, height);
+        self.cursor_render.resize(width, height);
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -264,8 +277,8 @@ impl WindowContext {
             for j in 0..row.cells.len() {
                 let cell = row.get_cell(j);
                 // print!("{}", cell.c);
-                if let Some(glyph) = self._cache.cache.get(&cell.c) {
-                    let atlas_size = self._cache.atlas_size as f32;
+                if let Some(glyph) = self.cache.cache.get(&cell.c) {
+                    let atlas_size = self.cache.atlas_size as f32;
                     let ax = glyph.x as f32 / atlas_size;
                     let ay = glyph.y as f32 / atlas_size;
                     let az = ax + CELL_WIDTH / atlas_size;
@@ -297,7 +310,10 @@ impl WindowContext {
             }
             // println!();
         }
+        self.cursor_render
+            .set_cursor(grid.cursor.col, grid.cursor.row);
         self.grid_render.render_pass(&view, &mut encoder);
+        self.cursor_render.render_pass(&view, &mut encoder);
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 

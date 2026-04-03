@@ -19,6 +19,16 @@ pub struct ColorProfile {
     pub bright_white: Rgb,
 }
 
+pub fn normalize_with_alpha(color: &[u8; 3], alpha: f32) -> [f32; 4] {
+    let a = alpha.clamp(0.0, 1.0);
+    [
+        color[0] as f32 / 255.0,
+        color[1] as f32 / 255.0,
+        color[2] as f32 / 255.0,
+        a,
+    ]
+}
+
 pub const DEFAULT_COLORS: &ColorProfile = &ColorProfile {
     black: [b'\x08'; 3],
     red: [b'\xd2', b'\x00', b'\x00'],
