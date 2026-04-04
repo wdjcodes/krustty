@@ -30,11 +30,17 @@ impl Terminal {
         self.grid.write_at_cursor(c, self.fg, self.bg);
     }
 
-    pub fn clear_to_end(&mut self) {
+    pub fn clear_line_to_end(&mut self) {
         let col = self.grid.cursor.col;
+        let row = &mut self.grid.rows[self.grid.cursor.row];
+        row.cells[col..].fill(Default::default());
+    }
+
+    pub fn clear_screen_to_end(&mut self) {
         let row = self.grid.cursor.row;
-        for i in col..self.grid.width {
-            self.grid.rows[row].cells[i].c = ' ';
+        self.clear_line_to_end();
+        for i in (0..row).rev() {
+            self.clear_line(i);
         }
     }
 
@@ -46,11 +52,12 @@ impl Terminal {
         }
     }
 
-    pub fn clear_line(&mut self) {
-        let row = self.grid.cursor.row;
-        for i in 0..self.grid.width {
-            self.grid.rows[row].cells[i].c = ' ';
-        }
+    pub fn clear_line(&mut self, row: usize) {
+        self.grid.rows[row].cells.fill(Default::default());
+    }
+
+    pub fn clear_current_line(&mut self) {
+        self.clear_line(self.grid.cursor.row);
     }
 }
 
@@ -156,9 +163,26 @@ impl Perform for Terminal {
                     }
                 }
             }
+            'A' => {
+                let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&1);
+                count = if *count == 0 { &1 } else { count };
+                self.grid.cursor.col = self.grid.cursor.col.saturating_add(*count as usize);
+            }
             'D' => {
                 let count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
                 self.grid.cursor.col = self.grid.cursor.col.saturating_sub(*count as usize);
+            }
+            'J' => {
+                let mode = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
+                match mode {
+                    0 => self.clear_screen_to_end(),
+                    _ => {
+                        println!(
+                            "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
+                            intermediates, params, action
+                        );
+                    }
+                }
             }
             // Erase in Line (EL)
             'K' => {
@@ -167,15 +191,20 @@ impl Perform for Terminal {
 
                 match mode {
                     0 => {
-                        self.clear_to_end();
+                        self.clear_line_to_end();
                     }
                     1 => {
                         self.clear_to_start();
                     }
                     2 => {
-                        self.clear_line();
+                        self.clear_current_line();
                     }
-                    _ => {} // Ignore unsupported modes
+                    _ => {
+                        println!(
+                            "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
+                            intermediates, params, action
+                        );
+                    }
                 }
             }
 

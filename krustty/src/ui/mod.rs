@@ -12,6 +12,7 @@ mod texture;
 use rtrb::CopyToUninit;
 use winit::{
     application::ApplicationHandler,
+    dpi::PhysicalSize,
     event::{ElementState, WindowEvent},
     event_loop::{self, EventLoop, EventLoopProxy},
     window::{Window, WindowId},
@@ -93,7 +94,7 @@ impl ApplicationHandler<Event> for Application {
                     }
                 }
             }
-            WindowEvent::Resized(size) => window.resize(size.width, size.height),
+            WindowEvent::Resized(size) => window.new_size = Some(size),
             WindowEvent::RedrawRequested => {
                 let _ = window.render();
             }
@@ -125,6 +126,7 @@ struct WindowContext {
     cache: GlyphCache,
     cursor_render: CursorRenderer,
     is_surface_configured: bool,
+    new_size: Option<PhysicalSize<u32>>,
     pty: Pty,
     pub term: Arc<Mutex<Terminal>>,
 }
@@ -211,18 +213,22 @@ impl WindowContext {
             size.height,
         );
 
+        surface.configure(&device, &config);
+        // self.is_surface_configured = true;
+
         Ok(Self {
             window,
             surface,
             device,
             queue,
             config,
-            is_surface_configured: false,
+            is_surface_configured: true,
             cache: glyph_cache,
             term,
             pty,
             grid_render: text_render,
             cursor_render,
+            new_size: None,
         })
     }
 
@@ -234,24 +240,31 @@ impl WindowContext {
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
         self.is_surface_configured = true;
-
+        println!("Trying to lock for resize");
         let mut term = self
             .term
             .lock()
             .expect("Failed to lock terminal during resize");
-
+        println!("Locked for resize");
         let cols = width as usize / CELL_WIDTH as usize;
         let rows = height as usize / CELL_HEIGHT as usize;
+        println!("Resizing grid");
         term.grid.resize(cols, rows);
+        println!("Grid resize completed");
         let _ = self.pty.resize(cols as u16, rows as u16);
+        println!("Resizing grid renderer");
         self.grid_render.resize(width, height);
         self.cursor_render.resize(width, height);
+        println!("Resize complete");
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         // We can't render unless the surface is configured
         if !self.is_surface_configured {
             return Ok(());
+        }
+        if let Some(size) = self.new_size.take() {
+            self.resize(size.width, size.height);
         }
 
         let output = self.surface.get_current_texture()?;
@@ -264,6 +277,7 @@ impl WindowContext {
                 label: Some("Render Encoder"),
             });
 
+        println!("Locking for render");
         let term = self
             .term
             .lock()
@@ -316,7 +330,7 @@ impl WindowContext {
         self.cursor_render.render_pass(&view, &mut encoder);
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
-
+        println!("rendering complete");
         Ok(())
     }
 }

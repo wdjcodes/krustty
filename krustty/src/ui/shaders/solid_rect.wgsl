@@ -26,7 +26,6 @@ fn vs_main(model: VertexInput, instance: RectInstance) -> VertexOutput {
     // Scale the 1x1 unit quad by the instance size, then translate
     let pixel_pos = (model.position * instance.size) + instance.screen_pos;
     
-    // Convert to NDC (same as your text shader)
     let ndc_x = (pixel_pos.x / globals.surface_size.x) * 2.0 - 1.0;
     let ndc_y = 1.0 - (pixel_pos.y / globals.surface_size.y) * 2.0;
     

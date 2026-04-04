@@ -86,6 +86,7 @@ pub fn read_pty(mut std_out: Box<dyn Read + Send>, term: Arc<Mutex<Terminal>>) {
         match std_out.read(&mut buffer) {
             Ok(0) => break, // EOF
             Ok(n) => {
+                println!("Pty: Locking Terminal");
                 let mut terminal = term
                     .lock()
                     .expect("Could not lock terminal while reading pty");
@@ -93,6 +94,7 @@ pub fn read_pty(mut std_out: Box<dyn Read + Send>, term: Arc<Mutex<Terminal>>) {
                 println!("{:?}", String::from_utf8_lossy(&buffer[0..n]).chars());
                 parser.advance(&mut *terminal, &buffer[..n]);
                 let _ = terminal.event_loop.send_event(Event::WakeUp);
+                println!("Pty: Releasing terminal");
             }
             Err(e) => {
                 eprintln!("Error reading from PTY: {}", e);

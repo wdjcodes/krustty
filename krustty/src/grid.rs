@@ -51,9 +51,14 @@ pub struct Row {
 impl Row {
     pub fn new(columns: usize) -> Self {
         Row {
-            cells: vec![Cell::default(); columns],
+            cells: Vec::with_capacity(columns),
             is_wrapped: false,
         }
+    }
+
+    pub fn wrapped(mut self, wrapped: bool) -> Self {
+        self.is_wrapped = wrapped;
+        self
     }
 
     pub fn get_cell(&self, idx: usize) -> &Cell {
@@ -156,21 +161,32 @@ impl Grid {
     }
 
     pub fn write_at_cursor(&mut self, c: char, fg: Rgb, bg: Rgb) {
-        let cell = &mut self.rows[self.cursor.row].cells[self.cursor.col];
-        cell.c = c;
-        cell.fg = fg;
-        cell.bg = bg;
-
+        if let Some(cell) = self.rows[self.cursor.row].cells.get_mut(self.cursor.col) {
+            cell.c = c;
+            cell.fg = fg;
+            cell.bg = bg;
+        } else {
+            self.rows[self.cursor.row].cells.push(Cell {
+                c,
+                fg,
+                bg,
+                flags: CellFlags::NONE,
+            });
+        }
         self.advance_cursor(1);
     }
 
     pub fn advance_cursor(&mut self, cols: usize) {
-        if self.cursor.col + cols < self.width {
-            self.cursor.col += cols;
-        } else {
-            self.rows[0].is_wrapped = true;
-            self.rows.push_front(Row::new(self.width));
+        if self.cursor.col + cols >= self.width {
+            if self.cursor.row == 0 {
+                self.rows.push_front(Row::new(self.width).wrapped(true));
+            } else {
+                self.cursor.row -= 1;
+            }
             self.cursor.col = 0;
+        } else {
+            let row = &mut self.rows[self.cursor.row];
+            self.cursor.col = std::cmp::min(row.cells.len(), self.cursor.col + cols);
         }
     }
 
