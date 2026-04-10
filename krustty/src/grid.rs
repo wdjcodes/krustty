@@ -56,11 +56,6 @@ impl Row {
         }
     }
 
-    pub fn wrapped(mut self, wrapped: bool) -> Self {
-        self.is_wrapped = wrapped;
-        self
-    }
-
     pub fn get_cell(&self, idx: usize) -> &Cell {
         &self.cells[idx]
     }
@@ -108,23 +103,37 @@ impl Grid {
 
     pub fn resize(&mut self, width: usize, height: usize) {
         let mut lines: VecDeque<Vec<Cell>> = VecDeque::with_capacity(self.rows());
+        let mut cursor_line = Cursor { col: 0, row: 0 };
 
-        for row in self.rows.iter_mut() {
+        for (i, row) in self.rows.iter_mut().enumerate() {
             let mut r = std::mem::take(&mut row.cells);
+            if self.cursor.row == i {
+                cursor_line.row = lines.len();
+                cursor_line.col = self.cursor.col;
+            }
             if row.is_wrapped {
                 let wrap = lines.pop_back().unwrap();
+                if cursor_line.row == lines.len() && self.cursor.row != i {
+                    cursor_line.col += r.len();
+                }
                 r.extend_from_slice(&wrap);
             }
             lines.push_back(r);
         }
 
         let mut new_rows = VecDeque::with_capacity(self.max_rows);
-        for line in lines.into_iter().rev() {
+        for (i, line) in lines.into_iter().enumerate().rev() {
             let mut start = 0;
             let mut to_copy = line.len();
+            println!("{i}");
             loop {
+                self.cursor.row += 1;
                 let mut cells = Vec::with_capacity(width);
                 let slice_len = std::cmp::min(to_copy, width);
+                if cursor_line.row == i && slice_len >= cursor_line.col {
+                    self.cursor.row = 0;
+                    self.cursor.col = cursor_line.col;
+                }
                 cells.extend_from_slice(&line[start..start + slice_len]);
                 start += slice_len;
                 to_copy -= slice_len;
@@ -145,7 +154,6 @@ impl Grid {
         self.rows = new_rows;
         self.width = width;
         self.height = height;
-        self.cursor = Cursor { col: 0, row: 0 };
     }
 
     #[expect(unused)]
@@ -179,7 +187,8 @@ impl Grid {
     pub fn advance_cursor(&mut self, cols: usize) {
         if self.cursor.col + cols >= self.width {
             if self.cursor.row == 0 {
-                self.rows.push_front(Row::new(self.width).wrapped(true));
+                self.rows[0].is_wrapped = true;
+                self.rows.push_front(Row::new(self.width));
             } else {
                 self.cursor.row -= 1;
             }

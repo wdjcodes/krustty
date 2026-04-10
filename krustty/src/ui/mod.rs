@@ -240,22 +240,16 @@ impl WindowContext {
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
         self.is_surface_configured = true;
-        println!("Trying to lock for resize");
         let mut term = self
             .term
             .lock()
             .expect("Failed to lock terminal during resize");
-        println!("Locked for resize");
         let cols = width as usize / CELL_WIDTH as usize;
         let rows = height as usize / CELL_HEIGHT as usize;
-        println!("Resizing grid");
         term.grid.resize(cols, rows);
-        println!("Grid resize completed");
         let _ = self.pty.resize(cols as u16, rows as u16);
-        println!("Resizing grid renderer");
         self.grid_render.resize(width, height);
         self.cursor_render.resize(width, height);
-        println!("Resize complete");
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -277,7 +271,6 @@ impl WindowContext {
                 label: Some("Render Encoder"),
             });
 
-        println!("Locking for render");
         let term = self
             .term
             .lock()
@@ -330,7 +323,6 @@ impl WindowContext {
         self.cursor_render.render_pass(&view, &mut encoder);
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
-        println!("rendering complete");
         Ok(())
     }
 }

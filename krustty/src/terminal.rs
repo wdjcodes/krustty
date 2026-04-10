@@ -106,6 +106,10 @@ impl Perform for Terminal {
         _ignore: bool,
         action: char,
     ) {
+        // println!(
+        //     "CSI: Intermediates: {:?} Params: {:?} Action: {}",
+        //     intermediates, params, action
+        // );
         match action {
             'm' => {
                 for param in params {
@@ -166,7 +170,7 @@ impl Perform for Terminal {
             'A' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&1);
                 count = if *count == 0 { &1 } else { count };
-                self.grid.cursor.col = self.grid.cursor.col.saturating_add(*count as usize);
+                self.grid.cursor.row = self.grid.cursor.row.saturating_add(*count as usize);
             }
             'D' => {
                 let count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
