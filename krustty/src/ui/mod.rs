@@ -141,7 +141,7 @@ impl WindowContext {
         let cols = (size.width / CELL_WIDTH as u32) as usize;
         let term = Arc::new(Mutex::new(Terminal::new(event_loop.clone(), cols, rows)));
         let pty =
-            Pty::spawn("zsh", term.clone(), cols as u16, rows as u16).expect("Failed to spawn pty");
+            Pty::spawn("sh", term.clone(), cols as u16, rows as u16).expect("Failed to spawn pty");
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,

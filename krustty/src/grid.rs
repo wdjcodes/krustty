@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, fmt::Display};
 
 use crate::color::{DEFAULT_COLORS, Rgb};
 
@@ -58,6 +58,16 @@ impl Row {
 
     pub fn get_cell(&self, idx: usize) -> &Cell {
         &self.cells[idx]
+    }
+}
+
+impl Display for Row {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut out = String::with_capacity(self.cells.len());
+        for cell in &self.cells {
+            out.push(cell.c);
+        }
+        write!(f, "[{}]{}", if self.is_wrapped { 'w' } else { ' ' }, out)
     }
 }
 
