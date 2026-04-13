@@ -75,6 +75,8 @@ impl Display for Row {
 pub struct Cursor {
     pub col: usize,
     pub row: usize,
+    /// When set writing another character will cause a soft line wrap
+    pub will_wrap: bool,
 }
 
 /// Main terminal Grid
@@ -113,7 +115,11 @@ impl Grid {
 
     pub fn resize(&mut self, width: usize, height: usize) {
         let mut lines: VecDeque<Vec<Cell>> = VecDeque::with_capacity(self.rows());
-        let mut cursor_line = Cursor { col: 0, row: 0 };
+        let mut cursor_line = Cursor {
+            col: 0,
+            row: 0,
+            will_wrap: false,
+        };
 
         for (i, row) in self.rows.iter_mut().enumerate() {
             let mut r = std::mem::take(&mut row.cells);
@@ -178,6 +184,9 @@ impl Grid {
     }
 
     pub fn write_at_cursor(&mut self, c: char, fg: Rgb, bg: Rgb) {
+        if self.cursor.will_wrap {
+            self.advance_cursor(1);
+        }
         if let Some(cell) = self.rows[self.cursor.row].cells.get_mut(self.cursor.col) {
             cell.c = c;
             cell.fg = fg;
@@ -194,7 +203,8 @@ impl Grid {
     }
 
     pub fn advance_cursor(&mut self, cols: usize) {
-        if self.cursor.col + cols >= self.width {
+        self.cursor.will_wrap = false;
+        if self.cursor.col + cols > self.width {
             if self.cursor.row == 0 {
                 self.rows[0].is_wrapped = true;
                 self.rows.push_front(Row::new(self.width));
@@ -202,6 +212,9 @@ impl Grid {
                 self.cursor.row -= 1;
             }
             self.cursor.col = 0;
+        } else if self.cursor.col + cols == self.width {
+            self.cursor.col = self.width;
+            self.cursor.will_wrap = true;
         } else {
             let row = &mut self.rows[self.cursor.row];
             self.cursor.col = std::cmp::min(row.cells.len(), self.cursor.col + cols);

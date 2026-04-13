@@ -147,7 +147,8 @@ impl WindowContext {
         let rows = (size.height / CELL_HEIGHT as u32) as usize;
         let cols = (size.width / CELL_WIDTH as u32) as usize;
         let term = Arc::new(Mutex::new(Terminal::new(event_loop.clone(), cols, rows)));
-        let pty = Pty::spawn("bash", term.clone(), cols as u16, rows as u16)
+        let shell = std::env::var("SHELL").unwrap_or("bash".to_string());
+        let pty = Pty::spawn(&shell, term.clone(), cols as u16, rows as u16)
             .expect("Failed to spawn pty");
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -221,7 +222,6 @@ impl WindowContext {
         );
 
         surface.configure(&device, &config);
-        // self.is_surface_configured = true;
 
         Ok(Self {
             window,
