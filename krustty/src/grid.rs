@@ -40,6 +40,12 @@ impl Default for Cell {
     }
 }
 
+impl Cell {
+    fn is_empty(&self) -> bool {
+        self.c == ' ' && self.flags == CellFlags::NONE
+    }
+}
+
 /// Represents a single horizontal line of text.
 #[derive(Clone, Debug)]
 pub struct Row {
@@ -128,6 +134,12 @@ impl Grid {
                 cursor_line.col = self.cursor.col;
             }
             if row.is_wrapped {
+                // Truncate any trailing empty cells
+                let len = r
+                    .iter()
+                    .rposition(|c| !c.is_empty())
+                    .map_or(row.cells.len(), |idx| idx + 1);
+                r.truncate(len);
                 let wrap = lines.pop_back().unwrap();
                 if cursor_line.row == lines.len() && self.cursor.row != i {
                     cursor_line.col += r.len();
@@ -137,6 +149,7 @@ impl Grid {
             lines.push_back(r);
         }
 
+        let mut cursor_placed = false;
         let mut new_rows = VecDeque::with_capacity(self.max_rows);
         for (i, line) in lines.into_iter().enumerate().rev() {
             let mut start = 0;
@@ -145,9 +158,17 @@ impl Grid {
                 self.cursor.row += 1;
                 let mut cells = Vec::with_capacity(width);
                 let slice_len = std::cmp::min(to_copy, width);
-                if cursor_line.row == i && slice_len >= cursor_line.col {
-                    self.cursor.row = 0;
-                    self.cursor.col = cursor_line.col;
+                if i == cursor_line.row {
+                    println!("Copy: {} Len: {}", to_copy, slice_len);
+                }
+                if !cursor_placed && cursor_line.row == i {
+                    cursor_placed = true;
+                    if slice_len >= cursor_line.col {
+                        self.cursor.row = 0;
+                        self.cursor.col = cursor_line.col;
+                    } else {
+                        cursor_line.col -= slice_len;
+                    }
                 }
                 cells.extend_from_slice(&line[start..start + slice_len]);
                 start += slice_len;
@@ -169,6 +190,12 @@ impl Grid {
         self.rows = new_rows;
         self.width = width;
         self.height = height;
+        println!(
+            "Rows: {} Cursor.row: {} Cursor.col: {}",
+            self.rows(),
+            self.cursor.row,
+            self.cursor.col,
+        );
     }
 
     #[expect(unused)]
