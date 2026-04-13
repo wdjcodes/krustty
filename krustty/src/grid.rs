@@ -135,7 +135,6 @@ impl Grid {
         for (i, line) in lines.into_iter().enumerate().rev() {
             let mut start = 0;
             let mut to_copy = line.len();
-            println!("{i}");
             loop {
                 self.cursor.row += 1;
                 let mut cells = Vec::with_capacity(width);

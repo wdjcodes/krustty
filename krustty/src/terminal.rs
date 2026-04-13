@@ -86,7 +86,7 @@ impl Perform for Terminal {
                 self.grid.advance_cursor(4);
             }
             //others Still need to be implemented
-            _ => {}
+            byte => println!("Unsupported control character: 0x{:2x}", byte),
         }
     }
 
@@ -172,8 +172,19 @@ impl Perform for Terminal {
                 count = if *count == 0 { &1 } else { count };
                 self.grid.cursor.row = self.grid.cursor.row.saturating_add(*count as usize);
             }
+            'B' => {
+                let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
+                count = if *count == 0 { &1 } else { count };
+                self.grid.cursor.row = self.grid.cursor.col.saturating_sub(*count as usize);
+            }
+            'C' => {
+                let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
+                count = if *count == 0 { &1 } else { count };
+                self.grid.cursor.col = self.grid.cursor.col.saturating_add(*count as usize);
+            }
             'D' => {
-                let count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
+                let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
+                count = if *count == 0 { &1 } else { count };
                 self.grid.cursor.col = self.grid.cursor.col.saturating_sub(*count as usize);
             }
             'J' => {

@@ -6,7 +6,7 @@ use std::{
 
 use crate::{terminal::Terminal, ui::Event};
 use portable_pty::{Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
-use rtrb::{Consumer, Producer, RingBuffer};
+use rtrb::{Consumer, CopyToUninit, Producer, RingBuffer};
 
 pub struct Pty {
     _pty_reader: JoinHandle<()>,
@@ -59,6 +59,18 @@ impl Pty {
             pixel_width: 0,
             pixel_height: 0,
         })
+    }
+
+    pub fn send_input(&mut self, input: &str) {
+        let bytes = input.as_bytes();
+        if let Ok(mut chunk) = self.input.write_chunk_uninit(bytes.len()) {
+            let (slice1, slice2) = chunk.as_mut_slices();
+            let wrap = slice1.len();
+            let _ = &bytes[..wrap].copy_to_uninit(slice1);
+            let _ = &bytes[wrap..].copy_to_uninit(slice2);
+            // SAFETY: bytes is initialized, and bytes.len() uninitialized bytes originally requested
+            unsafe { chunk.commit(bytes.len()) };
+        }
     }
 }
 
