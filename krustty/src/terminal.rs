@@ -33,7 +33,7 @@ impl Terminal {
     pub fn clear_line_to_end(&mut self) {
         let col = self.grid.cursor.col;
         let row = &mut self.grid.rows[self.grid.cursor.row];
-        row.cells[col..].fill(Default::default());
+        row.cells.truncate(col);
     }
 
     pub fn clear_screen_to_end(&mut self) {
@@ -106,10 +106,14 @@ impl Perform for Terminal {
         _ignore: bool,
         action: char,
     ) {
-        // println!(
-        //     "CSI: Intermediates: {:?} Params: {:?} Action: {}",
-        //     intermediates, params, action
-        // );
+        println!(
+            "CSI: Intermediates: {:?} Params: {:?} Action: {}",
+            intermediates, params, action
+        );
+        println!(
+            "\tRow: {} Col: {}",
+            self.grid.cursor.row, self.grid.cursor.col
+        );
         match action {
             'm' => {
                 for param in params {
@@ -175,7 +179,7 @@ impl Perform for Terminal {
             'B' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
                 count = if *count == 0 { &1 } else { count };
-                self.grid.cursor.row = self.grid.cursor.col.saturating_sub(*count as usize);
+                self.grid.cursor.row = self.grid.cursor.row.saturating_sub(*count as usize);
             }
             'C' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
@@ -239,6 +243,10 @@ impl Perform for Terminal {
                 );
             }
         }
+        println!(
+            "\tRow: {} Col: {}",
+            self.grid.cursor.row, self.grid.cursor.col
+        );
     }
 
     fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, _byte: u8) {}
