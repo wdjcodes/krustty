@@ -120,6 +120,11 @@ impl Grid {
     }
 
     pub fn resize(&mut self, width: usize, height: usize) {
+        // Don't need to reflow text if row width hasn't changed
+        if width == self.width {
+            self.height = height;
+            return;
+        }
         let mut lines: VecDeque<Vec<Cell>> = VecDeque::with_capacity(self.rows());
         let mut cursor_line = Cursor {
             col: 0,

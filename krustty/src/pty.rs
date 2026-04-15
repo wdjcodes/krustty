@@ -53,12 +53,17 @@ impl Pty {
     }
 
     pub fn resize(&self, cols: u16, rows: u16) -> anyhow::Result<()> {
-        self.master.resize(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
+        let size = self.master.get_size()?;
+        if size.cols != cols || size.rows != rows {
+            self.master.resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+        } else {
+            Ok(())
+        }
     }
 
     pub fn send_input(&mut self, input: &str) {

@@ -247,12 +247,12 @@ impl WindowContext {
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
         self.is_surface_configured = true;
+        let cols = width as usize / CELL_WIDTH as usize;
+        let rows = height as usize / CELL_HEIGHT as usize;
         let mut term = self
             .term
             .lock()
             .expect("Failed to lock terminal during resize");
-        let cols = width as usize / CELL_WIDTH as usize;
-        let rows = height as usize / CELL_HEIGHT as usize;
         term.grid.resize(cols, rows);
         let _ = self.pty.resize(cols as u16, rows as u16);
         self.grid_render.resize(width, height);
