@@ -211,7 +211,7 @@ impl WindowContext {
 
         text_render
             .atlas_texture
-            .write_texture(&queue, &glyph_cache.pixel_data);
+            .write_texture(&queue, glyph_cache.atlas_data());
 
         let cursor_render = CursorRenderer::new(
             device.clone(),
@@ -290,39 +290,36 @@ impl WindowContext {
             let row = grid.get_row(i);
             for j in 0..row.cells.len() {
                 let cell = row.get_cell(j);
-                // print!("{}", cell.c);
-                if let Some(glyph) = self.cache.cache.get(&cell.c) {
-                    let atlas_size = self.cache.atlas_size as f32;
-                    let ax = glyph.x as f32 / atlas_size;
-                    let ay = glyph.y as f32 / atlas_size;
-                    let az = ax + CELL_WIDTH / atlas_size;
-                    let aw = ay + CELL_HEIGHT / atlas_size;
-                    instances.push(CellInstance {
-                        screen_pos: [
-                            j as f32,
-                            // TODO: Change this when a proper viewport is added
-                            (term.grid.height - i - 1) as f32,
-                        ],
-                        atlas_uv: [ax, ay, az, aw],
-                        fg_color: [
-                            cell.fg[0] as f32 / 255.0,
-                            cell.fg[1] as f32 / 255.0,
-                            cell.fg[2] as f32 / 255.0,
-                            1.0,
-                        ],
-                        bg_color: [
-                            cell.bg[0] as f32 / 255.0,
-                            cell.bg[1] as f32 / 255.0,
-                            cell.bg[2] as f32 / 255.0,
-                            1.0,
-                        ],
-                    });
-                }
                 if cell.c == '\n' {
                     break;
                 }
+                let atlas_size = self.cache.atlas_size() as f32;
+                let glyph = self.cache.get(cell.c);
+                let ax = glyph.x as f32 / atlas_size;
+                let ay = glyph.y as f32 / atlas_size;
+                let az = ax + CELL_WIDTH / atlas_size;
+                let aw = ay + CELL_HEIGHT / atlas_size;
+                instances.push(CellInstance {
+                    screen_pos: [
+                        j as f32,
+                        // TODO: Change this when a proper viewport is added
+                        (term.grid.height - i - 1) as f32,
+                    ],
+                    atlas_uv: [ax, ay, az, aw],
+                    fg_color: [
+                        cell.fg[0] as f32 / 255.0,
+                        cell.fg[1] as f32 / 255.0,
+                        cell.fg[2] as f32 / 255.0,
+                        1.0,
+                    ],
+                    bg_color: [
+                        cell.bg[0] as f32 / 255.0,
+                        cell.bg[1] as f32 / 255.0,
+                        cell.bg[2] as f32 / 255.0,
+                        1.0,
+                    ],
+                });
             }
-            // println!();
         }
         self.cursor_render
             .set_cursor(grid.cursor.col, grid.cursor.row);

@@ -11,15 +11,10 @@ pub struct CachedGlyph {
 /// provides mechanisms to resolve a single character to a rendered
 /// glyph to make text rendering fast and easy on the gpu
 pub struct GlyphCache {
-    pub atlas_size: u32,
-    pub cell_width: u32,
-    pub cell_height: u32,
     /// Maps a character + settings to a location in the atlas
-    pub cache: HashMap<char, CachedGlyph>,
-    /// The raw pixel data (Grayscale/Alpha) to be sent to the GPU
-    pub pixel_data: Vec<u8>,
-    next_index: u32,
+    cache: HashMap<char, CachedGlyph>,
     font: fontdue::Font,
+    atlas: AtlasData,
 }
 
 impl GlyphCache {
@@ -40,22 +35,63 @@ impl GlyphCache {
             .expect("Error loading font");
 
         let font = fontdue::Font::from_bytes(font_bytes, Default::default()).unwrap();
+        let atlas = AtlasData::new(atlas_size, cell_width, cell_height);
         Self {
-            atlas_size,
-            cell_width,
-            cell_height,
             cache: HashMap::new(),
             // Initialize a clear atlas (Alpha = 0)
-            pixel_data: vec![0_u8; (atlas_size * atlas_size) as usize],
-            next_index: 0,
             font,
+            atlas,
         }
     }
 
+    // Loads all of the common printable english ascii characters into the cache
+    pub fn load_ascii(&mut self) {
+        for c in '!'..='~' {
+            let glyph = self.atlas.load_glyph(&self.font, c, 16.0);
+            self.cache.insert(c, glyph);
+        }
+    }
+
+    pub fn get(&mut self, c: char) -> &CachedGlyph {
+        let atlas = &mut self.atlas;
+        let font = &self.font;
+        self.cache
+            .entry(c)
+            .or_insert_with(|| atlas.load_glyph(font, c, 16.0))
+    }
+
+    pub fn atlas_data(&self) -> &[u8] {
+        &self.atlas.data
+    }
+
+    pub fn atlas_size(&self) -> u32 {
+        self.atlas.atlas_size
+    }
+}
+
+/// Contains the actual pixel data for the glyph atlas
+struct AtlasData {
+    pub data: Vec<u8>,
+    next_index: u32,
+    pub atlas_size: u32,
+    pub cell_width: u32,
+    pub cell_height: u32,
+}
+
+impl AtlasData {
+    fn new(size: u32, cell_width: u32, cell_height: u32) -> Self {
+        Self {
+            data: vec![0_u8; (size * size) as usize],
+            next_index: 0,
+            atlas_size: size,
+            cell_width,
+            cell_height,
+        }
+    }
     /// Rasterizes a char and packs it into the atlas.
     /// Returns the pixel coordinates of the new glyph.
-    pub fn load_glyph(&mut self, c: char, px: f32) {
-        let (metrics, bitmap) = self.font.rasterize(c, px);
+    pub fn load_glyph(&mut self, font: &fontdue::Font, c: char, px: f32) -> CachedGlyph {
+        let (metrics, bitmap) = font.rasterize(c, px);
         // Calculate grid position
         let cols = self.atlas_size / self.cell_width;
         let row = self.next_index / cols;
@@ -74,23 +110,15 @@ impl GlyphCache {
                 if dest_x < self.atlas_size && dest_y < self.atlas_size {
                     let dest_idx = (dest_y * self.atlas_size + dest_x) as usize;
                     let src_idx = y * metrics.width + x;
-                    self.pixel_data[dest_idx] = bitmap[src_idx];
+                    self.data[dest_idx] = bitmap[src_idx];
                 }
             }
         }
-
         let glyph = CachedGlyph {
             x: atlas_x,
             y: atlas_y,
         };
-        self.cache.insert(c, glyph);
         self.next_index += 1;
-    }
-
-    // Loads all of the common printable english ascii characters into the cache
-    pub fn load_ascii(&mut self) {
-        for c in '!'..='~' {
-            self.load_glyph(c, 16.0);
-        }
+        glyph
     }
 }
