@@ -67,6 +67,14 @@ impl GlyphCache {
     pub fn atlas_size(&self) -> u32 {
         self.atlas.atlas_size
     }
+
+    pub fn is_dirty(&self) -> bool {
+        self.atlas.dirty
+    }
+
+    pub fn clean(&mut self) {
+        self.atlas.dirty = false;
+    }
 }
 
 /// Contains the actual pixel data for the glyph atlas
@@ -76,6 +84,7 @@ struct AtlasData {
     pub atlas_size: u32,
     pub cell_width: u32,
     pub cell_height: u32,
+    pub dirty: bool,
 }
 
 impl AtlasData {
@@ -86,6 +95,7 @@ impl AtlasData {
             atlas_size: size,
             cell_width,
             cell_height,
+            dirty: false,
         }
     }
     /// Rasterizes a char and packs it into the atlas.
@@ -114,6 +124,7 @@ impl AtlasData {
                 }
             }
         }
+        self.dirty = true;
         let glyph = CachedGlyph {
             x: atlas_x,
             y: atlas_y,

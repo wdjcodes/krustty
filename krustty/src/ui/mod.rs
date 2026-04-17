@@ -321,6 +321,12 @@ impl WindowContext {
                 });
             }
         }
+        if self.cache.is_dirty() {
+            self.grid_render
+                .atlas_texture
+                .write_texture(&self.queue, self.cache.atlas_data());
+            self.cache.clean();
+        }
         self.cursor_render
             .set_cursor(grid.cursor.col, grid.cursor.row);
         self.grid_render.render_pass(&view, &mut encoder);
