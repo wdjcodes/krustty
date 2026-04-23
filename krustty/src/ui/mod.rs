@@ -74,31 +74,29 @@ impl ApplicationHandler<Event> for Application {
                 device_id: _,
                 event,
                 is_synthetic: _,
-            } => {
+            } if event.state == ElementState::Pressed => {
                 // TODO: Refactor and better separate and propagate dependencies so we can get a window id or some
                 // other method here to identify the correct window
-                if event.state == ElementState::Pressed {
-                    match event.logical_key {
-                        winit::keyboard::Key::Named(NamedKey::ArrowUp) => {
-                            window.pty.send_input("\x1b[A")
-                        }
-                        winit::keyboard::Key::Named(NamedKey::ArrowDown) => {
-                            window.pty.send_input("\x1b[B")
-                        }
-                        winit::keyboard::Key::Named(NamedKey::ArrowLeft) => {
-                            window.pty.send_input("\x1b[D")
-                        }
-                        winit::keyboard::Key::Named(NamedKey::ArrowRight) => {
-                            window.pty.send_input("\x1b[C")
-                        }
-                        winit::keyboard::Key::Named(name) => println!("Unhandled key: {:?}", name),
-                        _ => (),
+                match event.logical_key {
+                    winit::keyboard::Key::Named(NamedKey::ArrowUp) => {
+                        window.pty.send_input("\x1b[A")
                     }
-                    if let Some(text) = event.text {
-                        let id = *self.windows.keys().next().unwrap();
-                        let window = self.windows.get_mut(&id).unwrap();
-                        window.pty.send_input(&text);
+                    winit::keyboard::Key::Named(NamedKey::ArrowDown) => {
+                        window.pty.send_input("\x1b[B")
                     }
+                    winit::keyboard::Key::Named(NamedKey::ArrowLeft) => {
+                        window.pty.send_input("\x1b[D")
+                    }
+                    winit::keyboard::Key::Named(NamedKey::ArrowRight) => {
+                        window.pty.send_input("\x1b[C")
+                    }
+                    winit::keyboard::Key::Named(name) => println!("Unhandled key: {:?}", name),
+                    _ => (),
+                }
+                if let Some(text) = event.text {
+                    let id = *self.windows.keys().next().unwrap();
+                    let window = self.windows.get_mut(&id).unwrap();
+                    window.pty.send_input(&text);
                 }
             }
             WindowEvent::Resized(size) => window.new_size = Some(size),
@@ -120,7 +118,7 @@ impl ApplicationHandler<Event> for Application {
     }
 }
 
-const CELL_WIDTH: f32 = 12.0;
+const CELL_WIDTH: f32 = 10.0;
 const CELL_HEIGHT: f32 = 20.0;
 
 struct WindowContext {

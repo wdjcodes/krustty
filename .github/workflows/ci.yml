@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up stable Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.94.1
         with:
           components: rustfmt
 
@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up stable Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.94.1
         with:
           components: clippy
 
@@ -53,7 +53,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up stable Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.94.1
 
       - name: Enable Rust Cache
         uses: Swatinem/rust-cache@v2

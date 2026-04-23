@@ -13,9 +13,10 @@ pub struct CachedGlyph {
 pub struct GlyphCache {
     /// Maps a character + settings to a location in the atlas
     cache: HashMap<char, CachedGlyph>,
-    font: fontdue::Font,
     atlas: AtlasData,
 }
+
+const FONT_PX: f32 = 16.0;
 
 impl GlyphCache {
     pub fn new(atlas_size: u32, cell_width: u32, cell_height: u32) -> Self {
@@ -35,11 +36,9 @@ impl GlyphCache {
             .expect("Error loading font");
 
         let font = fontdue::Font::from_bytes(font_bytes, Default::default()).unwrap();
-        let atlas = AtlasData::new(atlas_size, cell_width, cell_height);
+        let atlas = AtlasData::new(font, atlas_size, cell_width, cell_height);
         Self {
             cache: HashMap::new(),
-            // Initialize a clear atlas (Alpha = 0)
-            font,
             atlas,
         }
     }
@@ -47,17 +46,16 @@ impl GlyphCache {
     // Loads all of the common printable english ascii characters into the cache
     pub fn load_ascii(&mut self) {
         for c in '!'..='~' {
-            let glyph = self.atlas.load_glyph(&self.font, c, 16.0);
+            let glyph = self.atlas.load_glyph(c, FONT_PX);
             self.cache.insert(c, glyph);
         }
     }
 
     pub fn get(&mut self, c: char) -> &CachedGlyph {
         let atlas = &mut self.atlas;
-        let font = &self.font;
         self.cache
             .entry(c)
-            .or_insert_with(|| atlas.load_glyph(font, c, 16.0))
+            .or_insert_with(|| atlas.load_glyph(c, FONT_PX))
     }
 
     pub fn atlas_data(&self) -> &[u8] {
@@ -85,10 +83,16 @@ struct AtlasData {
     pub cell_width: u32,
     pub cell_height: u32,
     pub dirty: bool,
+    pub font: fontdue::Font,
+    baseline: u32,
 }
 
 impl AtlasData {
-    fn new(size: u32, cell_width: u32, cell_height: u32) -> Self {
+    fn new(font: fontdue::Font, size: u32, cell_width: u32, cell_height: u32) -> Self {
+        let baseline = font
+            .horizontal_line_metrics(FONT_PX)
+            .expect("Failed to get font metrics")
+            .ascent as u32;
         Self {
             data: vec![0_u8; (size * size) as usize],
             next_index: 0,
@@ -96,16 +100,26 @@ impl AtlasData {
             cell_width,
             cell_height,
             dirty: false,
+            font,
+            baseline,
         }
     }
     /// Rasterizes a char and packs it into the atlas.
     /// Returns the pixel coordinates of the new glyph.
-    pub fn load_glyph(&mut self, font: &fontdue::Font, c: char, px: f32) -> CachedGlyph {
-        let (metrics, bitmap) = font.rasterize(c, px);
+    pub fn load_glyph(&mut self, c: char, px: f32) -> CachedGlyph {
+        let (metrics, bitmap) = self.font.rasterize(c, px);
         // Calculate grid position
         let cols = self.atlas_size / self.cell_width;
         let row = self.next_index / cols;
         let col = self.next_index % cols;
+
+        // Calculate the offset needed to place glyph on baseline
+        let y_off = self.baseline as i32 - (metrics.ymin + metrics.height as i32);
+
+        println!(
+            "Char: {} Baseline: {} y_off: {} height: {} y_min: {} x_min: {} width: {}",
+            c, self.baseline, y_off, metrics.height, metrics.ymin, metrics.xmin, metrics.width
+        );
 
         let atlas_x = col * self.cell_width;
         let atlas_y = row * self.cell_height;
@@ -113,8 +127,8 @@ impl AtlasData {
         // Copy fontdue bitmap into our large atlas buffer
         for y in 0..metrics.height {
             for x in 0..metrics.width {
-                let dest_x = atlas_x + x as u32;
-                let dest_y = atlas_y + y as u32;
+                let dest_x = (atlas_x + x as u32).saturating_add_signed(metrics.xmin);
+                let dest_y = (atlas_y + y as u32).saturating_add_signed(y_off);
 
                 // Ensure we don't write out of bounds
                 if dest_x < self.atlas_size && dest_y < self.atlas_size {
