@@ -273,6 +273,7 @@ impl Grid {
         &self.rows[idx]
     }
 
+    /// Returns the number of rows currently in the grid
     pub fn rows(&self) -> usize {
         self.rows.len()
     }

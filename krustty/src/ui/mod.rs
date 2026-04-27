@@ -7,12 +7,13 @@ use std::{
 mod cursor;
 mod font;
 mod grid;
+mod terminal;
 mod texture;
 
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{ElementState, WindowEvent},
+    event::{ElementState, MouseScrollDelta, WindowEvent},
     event_loop::{self, EventLoop, EventLoopProxy},
     keyboard::NamedKey,
     window::{Window, WindowId},
@@ -25,6 +26,7 @@ use crate::{
         cursor::CursorRenderer,
         font::GlyphCache,
         grid::{CellInstance, GridRenderer},
+        terminal::ViewPort,
     },
 };
 
@@ -103,6 +105,20 @@ impl ApplicationHandler<Event> for Application {
             WindowEvent::RedrawRequested => {
                 let _ = window.render();
             }
+            WindowEvent::MouseWheel {
+                delta: MouseScrollDelta::LineDelta(_cols, rows),
+                ..
+            } => {
+                let view_port = &mut window.view_port;
+                view_port.start = (view_port.start + rows as f64).clamp(
+                    0.0,
+                    view_port.max_rows.saturating_sub(view_port.height) as f64,
+                );
+                view_port.scroll_queued += rows as f64;
+                if view_port.scroll_queued >= 1.0 || view_port.scroll_queued <= -1.0 {
+                    window.window.request_redraw();
+                }
+            }
             _ => (),
         }
     }
@@ -132,6 +148,7 @@ struct WindowContext {
     cursor_render: CursorRenderer,
     is_surface_configured: bool,
     new_size: Option<PhysicalSize<u32>>,
+    view_port: ViewPort,
     pty: Pty,
     pub term: Arc<Mutex<Terminal>>,
 }
@@ -149,6 +166,12 @@ impl WindowContext {
         let pty = Pty::spawn(&shell, term.clone(), cols as u16, rows as u16)
             .expect("Failed to spawn pty");
 
+        let view_port = ViewPort {
+            height: rows,
+            start: 0.0,
+            max_rows: 0,
+            scroll_queued: 0.0,
+        };
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
@@ -234,6 +257,7 @@ impl WindowContext {
             grid_render: text_render,
             cursor_render,
             new_size: None,
+            view_port,
         })
     }
 
@@ -251,6 +275,7 @@ impl WindowContext {
             .term
             .lock()
             .expect("Failed to lock terminal during resize");
+        self.view_port.height = rows;
         term.grid.resize(cols, rows);
         let _ = self.pty.resize(cols as u16, rows as u16);
         self.grid_render.resize(width, height);
@@ -284,7 +309,16 @@ impl WindowContext {
         let instances = &mut self.grid_render.instances;
         instances.clear();
 
-        for i in 0..std::cmp::min(term.grid.height, grid.rows()) {
+        let view_port = &mut self.view_port;
+
+        view_port.max_rows = term.grid.rows();
+        view_port.start = view_port.start.clamp(
+            0.0,
+            view_port.max_rows.saturating_sub(view_port.height) as f64,
+        );
+        view_port.scroll_queued -= view_port.scroll_queued.trunc();
+        let start_row = view_port.start.floor() as usize;
+        for i in start_row..std::cmp::min(start_row + view_port.height, grid.rows()) {
             let row = grid.get_row(i);
             for j in 0..row.cells.len() {
                 let cell = row.get_cell(j);
@@ -301,7 +335,7 @@ impl WindowContext {
                     screen_pos: [
                         j as f32,
                         // TODO: Change this when a proper viewport is added
-                        (term.grid.height - i - 1) as f32,
+                        (view_port.height + start_row - i - 1) as f32,
                     ],
                     atlas_uv: [ax, ay, az, aw],
                     fg_color: [
