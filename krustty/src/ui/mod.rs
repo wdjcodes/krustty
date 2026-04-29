@@ -7,8 +7,8 @@ use std::{
 mod cursor;
 mod font;
 mod grid;
-mod terminal;
 mod texture;
+mod view;
 
 use winit::{
     application::ApplicationHandler,
@@ -26,14 +26,51 @@ use crate::{
         cursor::CursorRenderer,
         font::GlyphCache,
         grid::{CellInstance, GridRenderer},
-        terminal::ViewPort,
+        view::ViewPort,
     },
 };
+
+pub struct GpuHandle {
+    pub adapter: wgpu::Adapter,
+    pub device: Rc<wgpu::Device>,
+    pub queue: Rc<wgpu::Queue>,
+}
+
+impl GpuHandle {
+    pub fn init(instance: &wgpu::Instance, surface: &wgpu::Surface) -> Self {
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            compatible_surface: Some(surface),
+            force_fallback_adapter: false,
+        }))
+        .expect("Failed to get gpu adapter");
+
+        let (d, q) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: None,
+            required_features: wgpu::Features::empty(),
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
+            required_limits: wgpu::Limits::default(),
+            memory_hints: Default::default(),
+            trace: wgpu::Trace::Off,
+        }))
+        .expect("Failed to get gpu device and queue");
+
+        let device = Rc::new(d);
+        let queue = Rc::new(q);
+        Self {
+            adapter,
+            device,
+            queue,
+        }
+    }
+}
 
 pub struct Application {
     windows: HashMap<WindowId, WindowContext>,
     #[allow(unused)]
     proxy: EventLoopProxy<Event>,
+    gpu: Option<Rc<GpuHandle>>,
+    instance: wgpu::Instance,
 }
 
 pub enum Event {
@@ -42,10 +79,30 @@ pub enum Event {
 
 impl Application {
     pub fn new(event_loop: &EventLoop<Event>) -> Self {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::PRIMARY,
+            ..Default::default()
+        });
         Self {
             windows: Default::default(),
             proxy: event_loop.create_proxy(),
+            gpu: None,
+            instance,
         }
+    }
+
+    pub fn get_gpu_or_init(&mut self, surface: &wgpu::Surface) -> Rc<GpuHandle> {
+        let instance = &self.instance;
+        self.gpu
+            .get_or_insert_with(|| Rc::new(GpuHandle::init(instance, surface)))
+            .clone()
+    }
+
+    pub fn create_surface<'a>(
+        &self,
+        target: impl Into<wgpu::SurfaceTarget<'a>>,
+    ) -> wgpu::Surface<'a> {
+        self.instance.create_surface(target).unwrap()
     }
 }
 
@@ -53,10 +110,9 @@ impl ApplicationHandler<Event> for Application {
     fn resumed(&mut self, event_loop: &event_loop::ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
-        self.windows.insert(
-            window.id(),
-            pollster::block_on(WindowContext::new(window, self.proxy.clone())).unwrap(),
-        );
+        let proxy = self.proxy.clone();
+        let wc = pollster::block_on(WindowContext::new(window.clone(), self, proxy)).unwrap();
+        self.windows.insert(window.id(), wc);
     }
 
     fn window_event(
@@ -77,8 +133,8 @@ impl ApplicationHandler<Event> for Application {
                 event,
                 is_synthetic: _,
             } if event.state == ElementState::Pressed => {
-                // TODO: Refactor and better separate and propagate dependencies so we can get a window id or some
-                // other method here to identify the correct window
+                // TODO: Refactor and better separate and propagate dependencies so we can handle more
+                // key events without making match statement even larger
                 match event.logical_key {
                     winit::keyboard::Key::Named(NamedKey::ArrowUp) => {
                         window.pty.send_input("\x1b[A")
@@ -140,10 +196,13 @@ const CELL_HEIGHT: f32 = 20.0;
 struct WindowContext {
     window: Arc<Window>,
     surface: wgpu::Surface<'static>,
-    device: Rc<wgpu::Device>,
-    queue: Rc<wgpu::Queue>,
+    // device: Rc<wgpu::Device>,
+    // queue: Rc<wgpu::Queue>,
+    gpu: Rc<GpuHandle>,
     grid_render: GridRenderer,
     config: wgpu::SurfaceConfiguration,
+    // TODO: Probably makes sense to move this to the application? Not sure if it makes sense
+    // to have multiple caches.
     cache: GlyphCache,
     cursor_render: CursorRenderer,
     is_surface_configured: bool,
@@ -156,6 +215,7 @@ struct WindowContext {
 impl WindowContext {
     pub async fn new(
         window: Arc<Window>,
+        app: &mut Application,
         event_loop: EventLoopProxy<Event>,
     ) -> anyhow::Result<Self> {
         let size = window.inner_size();
@@ -172,35 +232,37 @@ impl WindowContext {
             max_rows: 0,
             scroll_queued: 0.0,
         };
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            ..Default::default()
-        });
+        // let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        //     backends: wgpu::Backends::PRIMARY,
+        //     ..Default::default()
+        // });
 
-        let surface = instance.create_surface(window.clone())?;
+        let surface = app.create_surface(window.clone());
 
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await?;
+        let gpu = app.get_gpu_or_init(&surface);
 
-        let (d, q) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: None,
-                required_features: wgpu::Features::empty(),
-                experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: Default::default(),
-                trace: wgpu::Trace::Off,
-            })
-            .await?;
-        let device = Rc::new(d);
-        let queue = Rc::new(q);
+        // let adapter = instance
+        //     .request_adapter(&wgpu::RequestAdapterOptions {
+        //         power_preference: wgpu::PowerPreference::default(),
+        //         compatible_surface: Some(&surface),
+        //         force_fallback_adapter: false,
+        //     })
+        //     .await?;
 
-        let surface_caps = surface.get_capabilities(&adapter);
+        // let (d, q) = adapter
+        //     .request_device(&wgpu::DeviceDescriptor {
+        //         label: None,
+        //         required_features: wgpu::Features::empty(),
+        //         experimental_features: wgpu::ExperimentalFeatures::disabled(),
+        //         required_limits: wgpu::Limits::default(),
+        //         memory_hints: Default::default(),
+        //         trace: wgpu::Trace::Off,
+        //     })
+        //     .await?;
+        // let device = Rc::new(d);
+        // let queue = Rc::new(q);
+
+        let surface_caps = surface.get_capabilities(&gpu.adapter);
         let surface_format = surface_caps
             .formats
             .iter()
@@ -223,8 +285,8 @@ impl WindowContext {
         let size = window.inner_size();
 
         let text_render = GridRenderer::new(
-            device.clone(),
-            queue.clone(),
+            gpu.device.clone(),
+            gpu.queue.clone(),
             &config,
             size.width,
             size.height,
@@ -232,23 +294,21 @@ impl WindowContext {
 
         text_render
             .atlas_texture
-            .write_texture(&queue, glyph_cache.atlas_data());
+            .write_texture(&gpu.queue, glyph_cache.atlas_data());
 
         let cursor_render = CursorRenderer::new(
-            device.clone(),
-            queue.clone(),
+            gpu.device.clone(),
+            gpu.queue.clone(),
             &config,
             size.width,
             size.height,
         );
 
-        surface.configure(&device, &config);
+        surface.configure(&gpu.device, &config);
 
         Ok(Self {
             window,
             surface,
-            device,
-            queue,
             config,
             is_surface_configured: true,
             cache: glyph_cache,
@@ -258,6 +318,7 @@ impl WindowContext {
             cursor_render,
             new_size: None,
             view_port,
+            gpu,
         })
     }
 
@@ -267,7 +328,7 @@ impl WindowContext {
         }
         self.config.width = width;
         self.config.height = height;
-        self.surface.configure(&self.device, &self.config);
+        self.surface.configure(&self.gpu.device, &self.config);
         self.is_surface_configured = true;
         let cols = width as usize / CELL_WIDTH as usize;
         let rows = height as usize / CELL_HEIGHT as usize;
@@ -296,6 +357,7 @@ impl WindowContext {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = self
+            .gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
@@ -356,14 +418,14 @@ impl WindowContext {
         if self.cache.is_dirty() {
             self.grid_render
                 .atlas_texture
-                .write_texture(&self.queue, self.cache.atlas_data());
+                .write_texture(&self.gpu.queue, self.cache.atlas_data());
             self.cache.clean();
         }
         self.cursor_render
             .set_cursor(grid.cursor.col, grid.cursor.row);
         self.grid_render.render_pass(&view, &mut encoder);
         self.cursor_render.render_pass(&view, &mut encoder);
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.gpu.queue.submit(std::iter::once(encoder.finish()));
         output.present();
         Ok(())
     }
