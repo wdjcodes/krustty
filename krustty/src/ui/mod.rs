@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     collections::HashMap,
     rc::Rc,
     sync::{Arc, Mutex},
@@ -26,6 +27,7 @@ use crate::{
         cursor::CursorRenderer,
         font::GlyphCache,
         grid::{CellInstance, GridRenderer},
+        texture::Texture,
         view::ViewPort,
     },
 };
@@ -68,9 +70,11 @@ impl GpuHandle {
 pub struct Application {
     windows: HashMap<WindowId, WindowContext>,
     #[allow(unused)]
-    proxy: EventLoopProxy<Event>,
+    pub proxy: EventLoopProxy<Event>,
     gpu: Option<Rc<GpuHandle>>,
     instance: wgpu::Instance,
+    pub cache: Rc<RefCell<GlyphCache>>,
+    atlas_texture: Option<Rc<Texture>>,
 }
 
 pub enum Event {
@@ -83,11 +87,17 @@ impl Application {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
+
+        let mut glyph_cache = GlyphCache::new(1024, CELL_WIDTH as _, CELL_HEIGHT as _);
+        glyph_cache.load_ascii();
+
         Self {
             windows: Default::default(),
             proxy: event_loop.create_proxy(),
             gpu: None,
             instance,
+            cache: Rc::new(RefCell::new(glyph_cache)),
+            atlas_texture: None,
         }
     }
 
@@ -95,6 +105,12 @@ impl Application {
         let instance = &self.instance;
         self.gpu
             .get_or_insert_with(|| Rc::new(GpuHandle::init(instance, surface)))
+            .clone()
+    }
+
+    pub fn get_atlas_or_init(&mut self, device: &wgpu::Device) -> Rc<Texture> {
+        self.atlas_texture
+            .get_or_insert_with(|| Rc::new(Texture::new(device, "atlas_texture", 1024, 1024)))
             .clone()
     }
 
@@ -196,14 +212,12 @@ const CELL_HEIGHT: f32 = 20.0;
 struct WindowContext {
     window: Arc<Window>,
     surface: wgpu::Surface<'static>,
-    // device: Rc<wgpu::Device>,
-    // queue: Rc<wgpu::Queue>,
     gpu: Rc<GpuHandle>,
     grid_render: GridRenderer,
     config: wgpu::SurfaceConfiguration,
     // TODO: Probably makes sense to move this to the application? Not sure if it makes sense
     // to have multiple caches.
-    cache: GlyphCache,
+    cache: Rc<RefCell<GlyphCache>>,
     cursor_render: CursorRenderer,
     is_surface_configured: bool,
     new_size: Option<PhysicalSize<u32>>,
@@ -232,35 +246,10 @@ impl WindowContext {
             max_rows: 0,
             scroll_queued: 0.0,
         };
-        // let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-        //     backends: wgpu::Backends::PRIMARY,
-        //     ..Default::default()
-        // });
 
         let surface = app.create_surface(window.clone());
 
         let gpu = app.get_gpu_or_init(&surface);
-
-        // let adapter = instance
-        //     .request_adapter(&wgpu::RequestAdapterOptions {
-        //         power_preference: wgpu::PowerPreference::default(),
-        //         compatible_surface: Some(&surface),
-        //         force_fallback_adapter: false,
-        //     })
-        //     .await?;
-
-        // let (d, q) = adapter
-        //     .request_device(&wgpu::DeviceDescriptor {
-        //         label: None,
-        //         required_features: wgpu::Features::empty(),
-        //         experimental_features: wgpu::ExperimentalFeatures::disabled(),
-        //         required_limits: wgpu::Limits::default(),
-        //         memory_hints: Default::default(),
-        //         trace: wgpu::Trace::Off,
-        //     })
-        //     .await?;
-        // let device = Rc::new(d);
-        // let queue = Rc::new(q);
 
         let surface_caps = surface.get_capabilities(&gpu.adapter);
         let surface_format = surface_caps
@@ -279,8 +268,6 @@ impl WindowContext {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
-        let mut glyph_cache = GlyphCache::new(1024, CELL_WIDTH as _, CELL_HEIGHT as _);
-        glyph_cache.load_ascii();
 
         let size = window.inner_size();
 
@@ -288,13 +275,8 @@ impl WindowContext {
             gpu.device.clone(),
             gpu.queue.clone(),
             &config,
-            size.width,
-            size.height,
+            app.get_atlas_or_init(&gpu.device),
         );
-
-        text_render
-            .atlas_texture
-            .write_texture(&gpu.queue, glyph_cache.atlas_data());
 
         let cursor_render = CursorRenderer::new(
             gpu.device.clone(),
@@ -311,7 +293,7 @@ impl WindowContext {
             surface,
             config,
             is_surface_configured: true,
-            cache: glyph_cache,
+            cache: app.cache.clone(),
             term,
             pty,
             grid_render: text_render,
@@ -387,8 +369,9 @@ impl WindowContext {
                 if cell.c == '\n' {
                     break;
                 }
-                let atlas_size = self.cache.atlas_size() as f32;
-                let glyph = self.cache.get(cell.c);
+                let mut cache = self.cache.borrow_mut();
+                let atlas_size = cache.atlas_size() as f32;
+                let glyph = cache.get(cell.c);
                 let ax = glyph.x as f32 / atlas_size;
                 let ay = glyph.y as f32 / atlas_size;
                 let az = ax + CELL_WIDTH / atlas_size;
@@ -415,11 +398,11 @@ impl WindowContext {
                 });
             }
         }
-        if self.cache.is_dirty() {
+        if self.cache.borrow().is_dirty() {
             self.grid_render
                 .atlas_texture
-                .write_texture(&self.gpu.queue, self.cache.atlas_data());
-            self.cache.clean();
+                .write_texture(&self.gpu.queue, self.cache.borrow().atlas_data());
+            self.cache.borrow_mut().clean();
         }
         self.cursor_render
             .set_cursor(grid.cursor.col, grid.cursor.row);

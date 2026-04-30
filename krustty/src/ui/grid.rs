@@ -21,8 +21,7 @@ pub struct GridRenderer {
     device: Rc<wgpu::Device>,
     pipeline: wgpu::RenderPipeline,
     queue: Rc<wgpu::Queue>,
-    pub atlas_texture: Texture,
-    atlas_bind_group: wgpu::BindGroup,
+    pub atlas_texture: Rc<Texture>,
     view_bind_group: wgpu::BindGroup,
     vertex_buff: wgpu::Buffer,
     globals_buff: wgpu::Buffer,
@@ -33,9 +32,10 @@ impl GridRenderer {
         device: Rc<wgpu::Device>,
         queue: Rc<wgpu::Queue>,
         config: &wgpu::SurfaceConfiguration,
-        width: u32,
-        height: u32,
+        atlas_texture: Rc<Texture>,
     ) -> Self {
+        let width = config.width;
+        let height = config.height;
         let shader = device.create_shader_module(wgpu::include_wgsl!("./shaders/cell.wgsl"));
 
         let vertex_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -43,31 +43,6 @@ impl GridRenderer {
             contents: bytemuck::cast_slice(Self::VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
-
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        // This should match the filterable field of the
-                        // corresponding Texture entry above.
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
 
         let view_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -87,7 +62,7 @@ impl GridRenderer {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&view_bind_group_layout, &texture_bind_group_layout],
+                bind_group_layouts: &[&view_bind_group_layout, &atlas_texture.bind_group_layout],
                 immediate_size: 0,
             });
 
@@ -150,23 +125,6 @@ impl GridRenderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let atlas_texture = Texture::new(&device, "Atlas texture", 1024, 1024);
-
-        let atlas_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
-                },
-            ],
-            label: Some("atlas_bind_group"),
-        });
-
         let view_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &view_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -184,7 +142,6 @@ impl GridRenderer {
             vertex_buff,
             pipeline,
             atlas_texture,
-            atlas_bind_group,
             view_bind_group,
             globals,
             globals_buff,
@@ -221,7 +178,7 @@ impl GridRenderer {
         });
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.view_bind_group, &[]);
-        render_pass.set_bind_group(1, &self.atlas_bind_group, &[]);
+        render_pass.set_bind_group(1, &self.atlas_texture.bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buff.slice(..));
         render_pass.set_vertex_buffer(1, self.instance_buff.slice(..));
         render_pass.draw(0..6, 0..self.instances.len() as u32);
