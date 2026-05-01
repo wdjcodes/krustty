@@ -29,13 +29,16 @@ pub struct GridRenderer {
 
 impl GridRenderer {
     pub fn new(
+        width: u32,
+        height: u32,
         device: Rc<wgpu::Device>,
         queue: Rc<wgpu::Queue>,
         config: &wgpu::SurfaceConfiguration,
         atlas_texture: Rc<Texture>,
     ) -> Self {
-        let width = config.width;
-        let height = config.height;
+        println!("Grid: width: {} height: {}", width, height);
+        let cols = (width as f32 / CELL_WIDTH) as usize;
+        let rows = (height as f32 / CELL_HEIGHT) as usize;
         let shader = device.create_shader_module(wgpu::include_wgsl!("./shaders/cell.wgsl"));
 
         let vertex_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -103,10 +106,7 @@ impl GridRenderer {
             multiview_mask: None,
             cache: None,
         });
-
-        let instances = bytemuck::zeroed_vec(
-            (width as usize / CELL_WIDTH as usize) * (height as usize / CELL_HEIGHT as usize),
-        );
+        let instances = bytemuck::zeroed_vec(rows * cols);
 
         let instance_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -185,12 +185,13 @@ impl GridRenderer {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
+        let cols = (width as f32 / CELL_WIDTH) as usize;
+        let rows = (height as f32 / CELL_HEIGHT) as usize;
+        println!("Grid: width: {} height: {}", width, height);
         self.globals.surface_size = [width as f32, height as f32];
         self.queue
             .write_buffer(&self.globals_buff, 0, bytemuck::bytes_of(&self.globals));
-        self.instances = bytemuck::zeroed_vec(
-            (width as usize / CELL_WIDTH as usize) * (height as usize / CELL_HEIGHT as usize),
-        );
+        self.instances = bytemuck::zeroed_vec(rows * cols);
         self.instance_buff = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {

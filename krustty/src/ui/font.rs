@@ -1,6 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use rust_fontconfig::FcPattern;
+
+use crate::ui::{GpuHandle, texture::Texture};
 
 pub struct CachedGlyph {
     /// The (x, y) position in the atlas (in pixels)
@@ -14,6 +16,7 @@ pub struct GlyphCache {
     /// Maps a character + settings to a location in the atlas
     cache: HashMap<char, CachedGlyph>,
     atlas: AtlasData,
+    texture: Option<Rc<Texture>>,
 }
 
 const FONT_PX: f32 = 16.0;
@@ -40,6 +43,7 @@ impl GlyphCache {
         Self {
             cache: HashMap::new(),
             atlas,
+            texture: None,
         }
     }
 
@@ -72,6 +76,23 @@ impl GlyphCache {
 
     pub fn clean(&mut self) {
         self.atlas.dirty = false;
+    }
+
+    pub fn get_atlas_or_init(&mut self, device: &wgpu::Device) -> Rc<Texture> {
+        self.texture
+            .get_or_insert_with(|| Rc::new(Texture::new(device, "atlas_texture", 1024, 1024)))
+            .clone()
+    }
+
+    pub fn update_atlas_texture(&mut self, gpu: &GpuHandle) {
+        // Do not update texture if not dirty
+        if !self.is_dirty() {
+            return;
+        }
+
+        let texture = self.get_atlas_or_init(&gpu.device);
+        texture.write_texture(&gpu.queue, self.atlas_data());
+        self.clean();
     }
 }
 

@@ -20,12 +20,13 @@ pub struct CursorRenderer {
 
 impl CursorRenderer {
     pub fn new(
+        width: u32,
+        height: u32,
         device: Rc<wgpu::Device>,
         queue: Rc<wgpu::Queue>,
         config: &wgpu::SurfaceConfiguration,
-        width: u32,
-        height: u32,
     ) -> Self {
+        println!("Cursor: width: {} height: {}", width, height);
         let shader = device.create_shader_module(wgpu::include_wgsl!("./shaders/solid_rect.wgsl"));
 
         let vertex_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -171,6 +172,7 @@ impl CursorRenderer {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
+        println!("Cursor: width: {} height: {}", width, height);
         self.globals.surface_size = [width as f32, height as f32];
         self.queue
             .write_buffer(&self.globals_buff, 0, bytemuck::bytes_of(&self.globals));
