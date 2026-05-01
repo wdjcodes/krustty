@@ -144,8 +144,9 @@ impl Pane {
                 });
             }
         }
+
         self.cursor_render
-            .set_cursor(grid.cursor.col, grid.cursor.row);
+            .set_cursor(view_port.grid_to_viewport(&grid.cursor));
     }
 
     pub fn render(&mut self, view: &wgpu::TextureView, encoder: &mut wgpu::CommandEncoder) {

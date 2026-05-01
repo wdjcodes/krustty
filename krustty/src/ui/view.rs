@@ -1,3 +1,5 @@
+use crate::grid::Cursor;
+
 #[derive(Debug)]
 pub struct ViewPort {
     /// Number of Rows in the view port
@@ -13,4 +15,19 @@ pub struct ViewPort {
     pub start: f64,
     /// Used to detect when at least on row of scroll has been queued to request redraw
     pub scroll_queued: f64,
+}
+
+impl ViewPort {
+    pub fn grid_to_viewport(&self, cursor: &Cursor) -> Option<Cursor> {
+        let vpr = (cursor.row as isize).saturating_sub(self.start as isize);
+        if vpr >= 0 && vpr < self.height as isize {
+            Some(Cursor {
+                col: cursor.col,
+                row: cursor.row,
+                will_wrap: false,
+            })
+        } else {
+            None
+        }
+    }
 }

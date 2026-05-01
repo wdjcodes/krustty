@@ -36,7 +36,6 @@ impl GridRenderer {
         config: &wgpu::SurfaceConfiguration,
         atlas_texture: Rc<Texture>,
     ) -> Self {
-        println!("Grid: width: {} height: {}", width, height);
         let cols = (width as f32 / CELL_WIDTH) as usize;
         let rows = (height as f32 / CELL_HEIGHT) as usize;
         let shader = device.create_shader_module(wgpu::include_wgsl!("./shaders/cell.wgsl"));
@@ -187,7 +186,6 @@ impl GridRenderer {
     pub fn resize(&mut self, width: u32, height: u32) {
         let cols = (width as f32 / CELL_WIDTH) as usize;
         let rows = (height as f32 / CELL_HEIGHT) as usize;
-        println!("Grid: width: {} height: {}", width, height);
         self.globals.surface_size = [width as f32, height as f32];
         self.queue
             .write_buffer(&self.globals_buff, 0, bytemuck::bytes_of(&self.globals));

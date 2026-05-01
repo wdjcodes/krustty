@@ -4,6 +4,7 @@ use wgpu::util::DeviceExt;
 
 use crate::{
     color::{DEFAULT_COLORS, normalize_with_alpha},
+    grid::Cursor,
     ui::{CELL_HEIGHT, CELL_WIDTH},
 };
 
@@ -16,6 +17,7 @@ pub struct CursorRenderer {
     globals_bind_group: wgpu::BindGroup,
     vertex_buff: wgpu::Buffer,
     globals_buff: wgpu::Buffer,
+    cursor_inst: Option<CursorInstance>,
 }
 
 impl CursorRenderer {
@@ -26,7 +28,6 @@ impl CursorRenderer {
         queue: Rc<wgpu::Queue>,
         config: &wgpu::SurfaceConfiguration,
     ) -> Self {
-        println!("Cursor: width: {} height: {}", width, height);
         let shader = device.create_shader_module(wgpu::include_wgsl!("./shaders/solid_rect.wgsl"));
 
         let vertex_buff = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -130,24 +131,33 @@ impl CursorRenderer {
             globals_bind_group,
             globals,
             globals_buff,
+            cursor_inst: None,
         }
     }
 
-    pub fn set_cursor(&mut self, col: usize, row: usize) {
-        let cursor = CursorInstance {
-            screen_pos: [
-                col as f32 * CELL_WIDTH,
-                self.globals.surface_size[1] - row as f32 * CELL_HEIGHT - CELL_HEIGHT,
-            ],
-            size: [2.0, CELL_HEIGHT],
-            fg_color: normalize_with_alpha(&DEFAULT_COLORS.white, 1.0),
-        };
-
-        self.queue
-            .write_buffer(&self.instance_buff, 0, bytemuck::bytes_of(&cursor));
+    pub fn set_cursor(&mut self, cursor: Option<Cursor>) {
+        if let Some(cursor) = cursor {
+            self.cursor_inst = Some(CursorInstance {
+                screen_pos: [
+                    cursor.col as f32 * CELL_WIDTH,
+                    self.globals.surface_size[1] - cursor.row as f32 * CELL_HEIGHT - CELL_HEIGHT,
+                ],
+                size: [2.0, CELL_HEIGHT],
+                fg_color: normalize_with_alpha(&DEFAULT_COLORS.white, 1.0),
+            });
+        } else {
+            self.cursor_inst = None;
+        }
     }
 
     pub fn render_pass(&self, view: &wgpu::TextureView, encoder: &mut wgpu::CommandEncoder) {
+        if let Some(cursor_inst) = self.cursor_inst {
+            self.queue
+                .write_buffer(&self.instance_buff, 0, bytemuck::bytes_of(&cursor_inst));
+        } else {
+            // Cursor is not within Viewport so do not render
+            return;
+        }
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
