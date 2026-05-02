@@ -7,6 +7,7 @@ use std::{
 use crate::{terminal::Terminal, ui::Event};
 use portable_pty::{Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
 use rtrb::{Consumer, CopyToUninit, Producer, RingBuffer};
+use tracing::{debug, error};
 
 pub struct Pty {
     _pty_reader: JoinHandle<()>,
@@ -107,12 +108,12 @@ pub fn read_pty(mut std_out: Box<dyn Read + Send>, term: Arc<Mutex<Terminal>>) {
                     .lock()
                     .expect("Could not lock terminal while reading pty");
                 #[cfg(debug_assertions)]
-                println!("{:?}", String::from_utf8_lossy(&buffer[0..n]).chars());
+                debug!("{:?}", String::from_utf8_lossy(&buffer[0..n]).chars());
                 parser.advance(&mut *terminal, &buffer[..n]);
                 let _ = terminal.event_loop.send_event(Event::WakeUp);
             }
             Err(e) => {
-                eprintln!("Error reading from PTY: {}", e);
+                error!("Error reading from PTY: {}", e);
                 break;
             }
         }

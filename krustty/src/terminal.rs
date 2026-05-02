@@ -1,3 +1,4 @@
+use tracing::info;
 use vte::Perform;
 use winit::event_loop::EventLoopProxy;
 
@@ -86,7 +87,7 @@ impl Perform for Terminal {
                 self.grid.advance_cursor(4);
             }
             //others Still need to be implemented
-            byte => println!("Unsupported control character: 0x{:2x}", byte),
+            byte => info!("Unsupported control character: 0x{:2x}", byte),
         }
     }
 
@@ -106,14 +107,6 @@ impl Perform for Terminal {
         _ignore: bool,
         action: char,
     ) {
-        println!(
-            "CSI: Intermediates: {:?} Params: {:?} Action: {}",
-            intermediates, params, action
-        );
-        println!(
-            "\tRow: {} Col: {}",
-            self.grid.cursor.row, self.grid.cursor.col
-        );
         match action {
             'm' => {
                 for param in params {
@@ -163,7 +156,7 @@ impl Perform for Terminal {
                         107 => self.bg = DEFAULT_COLORS.bright_white,
 
                         code => {
-                            println!(
+                            info!(
                                 "Unsupported SGR: Code: {} Intermediates: {:?} Params: {:?} Action: {}",
                                 code, intermediates, params, action
                             );
@@ -196,7 +189,7 @@ impl Perform for Terminal {
                 match mode {
                     0 => self.clear_screen_to_end(),
                     _ => {
-                        println!(
+                        info!(
                             "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
                             intermediates, params, action
                         );
@@ -219,7 +212,7 @@ impl Perform for Terminal {
                         self.clear_current_line();
                     }
                     _ => {
-                        println!(
+                        info!(
                             "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
                             intermediates, params, action
                         );
@@ -237,16 +230,12 @@ impl Perform for Terminal {
             }
 
             _ => {
-                println!(
+                info!(
                     "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
                     intermediates, params, action
                 );
             }
         }
-        println!(
-            "\tRow: {} Col: {}",
-            self.grid.cursor.row, self.grid.cursor.col
-        );
     }
 
     fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, _byte: u8) {}

@@ -1,5 +1,6 @@
 use bitflags::bitflags;
 use std::{collections::VecDeque, fmt::Display};
+use tracing::debug;
 
 use crate::color::{DEFAULT_COLORS, Rgb};
 
@@ -163,9 +164,6 @@ impl Grid {
                 self.cursor.row += 1;
                 let mut cells = Vec::with_capacity(width);
                 let slice_len = std::cmp::min(to_copy, width);
-                if i == cursor_line.row {
-                    println!("Copy: {} Len: {}", to_copy, slice_len);
-                }
                 if !cursor_placed && cursor_line.row == i {
                     cursor_placed = true;
                     if slice_len >= cursor_line.col {
@@ -195,7 +193,7 @@ impl Grid {
         self.rows = new_rows;
         self.width = width;
         self.height = height;
-        println!(
+        debug!(
             "Rows: {} Cursor.row: {} Cursor.col: {}",
             self.rows(),
             self.cursor.row,

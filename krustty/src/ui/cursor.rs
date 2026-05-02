@@ -182,7 +182,6 @@ impl CursorRenderer {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        println!("Cursor: width: {} height: {}", width, height);
         self.globals.surface_size = [width as f32, height as f32];
         self.queue
             .write_buffer(&self.globals_buff, 0, bytemuck::bytes_of(&self.globals));

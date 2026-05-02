@@ -1,6 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use rust_fontconfig::FcPattern;
+use tracing::debug;
 
 use crate::ui::{GpuHandle, texture::Texture};
 
@@ -137,7 +138,7 @@ impl AtlasData {
         // Calculate the offset needed to place glyph on baseline
         let y_off = self.baseline as i32 - (metrics.ymin + metrics.height as i32);
 
-        println!(
+        debug!(
             "Char: {} Baseline: {} y_off: {} height: {} y_min: {} x_min: {} width: {}",
             c, self.baseline, y_off, metrics.height, metrics.ymin, metrics.xmin, metrics.width
         );

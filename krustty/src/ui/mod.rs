@@ -8,6 +8,7 @@ mod texture;
 mod view;
 mod window;
 
+use tracing::info;
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, MouseScrollDelta, WindowEvent},
@@ -144,7 +145,7 @@ impl ApplicationHandler<Event> for Application {
                     winit::keyboard::Key::Named(NamedKey::ArrowRight) => {
                         window.pty().send_input("\x1b[C")
                     }
-                    winit::keyboard::Key::Named(name) => println!("Unhandled key: {:?}", name),
+                    winit::keyboard::Key::Named(name) => info!("Unhandled key: {:?}", name),
                     _ => (),
                 }
                 if let Some(text) = event.text {

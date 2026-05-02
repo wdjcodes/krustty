@@ -9,7 +9,7 @@ mod ui;
 use crate::ui::Application;
 
 fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt().with_line_number(true).init();
 
     let event_loop = EventLoop::with_user_event().build()?;
     let mut app = Application::new(&event_loop);
