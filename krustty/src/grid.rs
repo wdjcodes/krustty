@@ -1,6 +1,6 @@
 use bitflags::bitflags;
+use log::debug;
 use std::{collections::VecDeque, fmt::Display};
-use tracing::debug;
 
 use crate::color::{DEFAULT_COLORS, Rgb};
 

@@ -1,6 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, path::PathBuf, rc::Rc};
 
-use tracing::{debug, error, info, warn};
+use log::{debug, error, info};
 
 use crate::ui::{GpuHandle, texture::Texture};
 
@@ -66,14 +66,22 @@ impl FontCache {
     fn load_font(&mut self, c: char) -> Option<Font> {
         let mut pat = fontconfig::Pattern::new(&self.fc);
         pat.add_string(fontconfig::FC_FAMILY, c"monospace");
-        let mut cs = fontconfig::CharSet::create();
+        let mut cs = fontconfig::CharSet::new(&self.fc);
         cs.add_char(c);
         pat.add_charset(cs);
-        let font_desc = if let Some(fd) = self.fc.find_pattern(&mut pat) {
-            fd
-        } else {
-            warn!("Failed to find a font for: u+{:04x}", c as u32);
-            return None;
+        let font_desc = {
+            let fd = pat.font_match();
+            if let Some(name) = fd.name()
+                && let Some(filename) = fd.filename()
+            {
+                fontconfig::Font {
+                    name: name.to_owned(),
+                    path: PathBuf::from(filename),
+                    index: fd.face_index(),
+                }
+            } else {
+                return None;
+            }
         };
 
         info!(

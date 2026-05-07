@@ -1,4 +1,4 @@
-use tracing::info;
+use log::info;
 use vte::Perform;
 use winit::event_loop::EventLoopProxy;
 

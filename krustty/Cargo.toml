@@ -14,9 +14,9 @@ profiling = []
 anyhow = "1.0.102"
 bitflags = "2.11.0"
 bytemuck = "1.25.0"
-env_logger = "0.11.9"
-fontconfig = { git = "https://github.com/wdjcodes/fontconfig-rs.git", branch = "fork-main" }
+fontconfig = "0.10.2"
 fontdue = "0.9.3"
+log = "0.4.29"
 palette = "0.7.6"
 pollster = "0.4.0"
 portable-pty = "0.9.0"

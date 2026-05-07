@@ -8,7 +8,7 @@ mod texture;
 mod view;
 mod window;
 
-use tracing::info;
+use log::info;
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, MouseScrollDelta, WindowEvent},
