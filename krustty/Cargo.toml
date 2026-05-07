@@ -7,6 +7,9 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[features]
+profiling = []
+
 [dependencies]
 anyhow = "1.0.102"
 bitflags = "2.11.0"
@@ -14,6 +17,7 @@ bytemuck = "1.25.0"
 env_logger = "0.11.9"
 fontconfig = { git = "https://github.com/wdjcodes/fontconfig-rs.git", branch = "fork-main" }
 fontdue = "0.9.3"
+palette = "0.7.6"
 pollster = "0.4.0"
 portable-pty = "0.9.0"
 rtrb = "0.3.3"

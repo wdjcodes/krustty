@@ -22,8 +22,8 @@ impl Terminal {
         Self {
             grid,
             event_loop,
-            fg: DEFAULT_COLORS.white,
-            bg: DEFAULT_COLORS.black,
+            fg: DEFAULT_COLORS.fg.into_format(),
+            bg: DEFAULT_COLORS.bg.into_format(),
         }
     }
 
@@ -113,47 +113,47 @@ impl Perform for Terminal {
                     let code = param.first().unwrap_or(&255);
                     match code {
                         0 => {
-                            self.fg = DEFAULT_COLORS.white;
-                            self.bg = DEFAULT_COLORS.black;
+                            self.fg = DEFAULT_COLORS.fg.into_format();
+                            self.bg = DEFAULT_COLORS.bg.into_format();
                         }
                         // Foreground
-                        30 => self.fg = DEFAULT_COLORS.black,
-                        31 => self.fg = DEFAULT_COLORS.red,
-                        32 => self.fg = DEFAULT_COLORS.green,
-                        33 => self.fg = DEFAULT_COLORS.yellow,
-                        34 => self.fg = DEFAULT_COLORS.blue,
-                        35 => self.fg = DEFAULT_COLORS.purple,
-                        36 => self.fg = DEFAULT_COLORS.cyan,
-                        37 => self.fg = DEFAULT_COLORS.white,
-                        39 => self.fg = DEFAULT_COLORS.white,
+                        30 => self.fg = DEFAULT_COLORS.black.into_format(),
+                        31 => self.fg = DEFAULT_COLORS.red.into_format(),
+                        32 => self.fg = DEFAULT_COLORS.green.into_format(),
+                        33 => self.fg = DEFAULT_COLORS.yellow.into_format(),
+                        34 => self.fg = DEFAULT_COLORS.blue.into_format(),
+                        35 => self.fg = DEFAULT_COLORS.purple.into_format(),
+                        36 => self.fg = DEFAULT_COLORS.cyan.into_format(),
+                        37 => self.fg = DEFAULT_COLORS.white.into_format(),
+                        39 => self.fg = DEFAULT_COLORS.white.into_format(),
                         // Background
-                        40 => self.bg = DEFAULT_COLORS.black,
-                        41 => self.bg = DEFAULT_COLORS.red,
-                        42 => self.bg = DEFAULT_COLORS.green,
-                        43 => self.bg = DEFAULT_COLORS.yellow,
-                        44 => self.bg = DEFAULT_COLORS.blue,
-                        45 => self.bg = DEFAULT_COLORS.purple,
-                        46 => self.bg = DEFAULT_COLORS.cyan,
-                        47 => self.bg = DEFAULT_COLORS.white,
-                        49 => self.bg = DEFAULT_COLORS.black,
+                        40 => self.bg = DEFAULT_COLORS.black.into_format(),
+                        41 => self.bg = DEFAULT_COLORS.red.into_format(),
+                        42 => self.bg = DEFAULT_COLORS.green.into_format(),
+                        43 => self.bg = DEFAULT_COLORS.yellow.into_format(),
+                        44 => self.bg = DEFAULT_COLORS.blue.into_format(),
+                        45 => self.bg = DEFAULT_COLORS.purple.into_format(),
+                        46 => self.bg = DEFAULT_COLORS.cyan.into_format(),
+                        47 => self.bg = DEFAULT_COLORS.white.into_format(),
+                        49 => self.bg = DEFAULT_COLORS.black.into_format(),
                         // Bright Foreground
-                        90 => self.fg = DEFAULT_COLORS.bright_black,
-                        91 => self.fg = DEFAULT_COLORS.bright_red,
-                        92 => self.fg = DEFAULT_COLORS.bright_green,
-                        93 => self.fg = DEFAULT_COLORS.bright_yellow,
-                        94 => self.fg = DEFAULT_COLORS.bright_blue,
-                        95 => self.fg = DEFAULT_COLORS.bright_purple,
-                        96 => self.fg = DEFAULT_COLORS.bright_cyan,
-                        97 => self.fg = DEFAULT_COLORS.bright_white,
+                        90 => self.fg = DEFAULT_COLORS.bright_black.into_format(),
+                        91 => self.fg = DEFAULT_COLORS.bright_red.into_format(),
+                        92 => self.fg = DEFAULT_COLORS.bright_green.into_format(),
+                        93 => self.fg = DEFAULT_COLORS.bright_yellow.into_format(),
+                        94 => self.fg = DEFAULT_COLORS.bright_blue.into_format(),
+                        95 => self.fg = DEFAULT_COLORS.bright_purple.into_format(),
+                        96 => self.fg = DEFAULT_COLORS.bright_cyan.into_format(),
+                        97 => self.fg = DEFAULT_COLORS.bright_white.into_format(),
                         // Bright Background
-                        100 => self.bg = DEFAULT_COLORS.bright_black,
-                        101 => self.bg = DEFAULT_COLORS.bright_red,
-                        102 => self.bg = DEFAULT_COLORS.bright_green,
-                        103 => self.bg = DEFAULT_COLORS.bright_yellow,
-                        104 => self.bg = DEFAULT_COLORS.bright_blue,
-                        105 => self.bg = DEFAULT_COLORS.bright_purple,
-                        106 => self.bg = DEFAULT_COLORS.bright_cyan,
-                        107 => self.bg = DEFAULT_COLORS.bright_white,
+                        100 => self.bg = DEFAULT_COLORS.bright_black.into_format(),
+                        101 => self.bg = DEFAULT_COLORS.bright_red.into_format(),
+                        102 => self.bg = DEFAULT_COLORS.bright_green.into_format(),
+                        103 => self.bg = DEFAULT_COLORS.bright_yellow.into_format(),
+                        104 => self.bg = DEFAULT_COLORS.bright_blue.into_format(),
+                        105 => self.bg = DEFAULT_COLORS.bright_purple.into_format(),
+                        106 => self.bg = DEFAULT_COLORS.bright_cyan.into_format(),
+                        107 => self.bg = DEFAULT_COLORS.bright_white.into_format(),
 
                         code => {
                             info!(

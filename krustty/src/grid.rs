@@ -34,8 +34,8 @@ impl Default for Cell {
     fn default() -> Self {
         Cell {
             c: ' ',
-            fg: DEFAULT_COLORS.white,
-            bg: DEFAULT_COLORS.bright_black,
+            fg: DEFAULT_COLORS.fg.into_format(),
+            bg: DEFAULT_COLORS.bg.into_format(),
             flags: CellFlags::NONE,
         }
     }

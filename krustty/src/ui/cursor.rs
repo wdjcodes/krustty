@@ -1,9 +1,10 @@
 use std::rc::Rc;
 
+use palette::WithAlpha;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    color::{DEFAULT_COLORS, normalize_with_alpha},
+    color::{DEFAULT_COLORS, Rgb},
     grid::Cursor,
     ui::{CELL_HEIGHT, CELL_WIDTH},
 };
@@ -18,6 +19,7 @@ pub struct CursorRenderer {
     vertex_buff: wgpu::Buffer,
     globals_buff: wgpu::Buffer,
     cursor_inst: Option<CursorInstance>,
+    color: Rgb,
 }
 
 impl CursorRenderer {
@@ -122,6 +124,8 @@ impl CursorRenderer {
             label: Some("Rect: globals_bind_group"),
         });
 
+        let color = DEFAULT_COLORS.white.into_format();
+
         Self {
             _device: device,
             queue,
@@ -132,6 +136,7 @@ impl CursorRenderer {
             globals,
             globals_buff,
             cursor_inst: None,
+            color,
         }
     }
 
@@ -143,7 +148,7 @@ impl CursorRenderer {
                     self.globals.surface_size[1] - cursor.row as f32 * CELL_HEIGHT - CELL_HEIGHT,
                 ],
                 size: [2.0, CELL_HEIGHT],
-                fg_color: normalize_with_alpha(&DEFAULT_COLORS.white, 1.0),
+                fg_color: self.color.with_alpha(1.0).into_linear().into(),
             });
         } else {
             self.cursor_inst = None;

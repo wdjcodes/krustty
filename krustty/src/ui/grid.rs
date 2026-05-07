@@ -3,7 +3,7 @@ use std::rc::Rc;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    color::DEFAULT_COLORS,
+    color::{DEFAULT_COLORS, Rgb},
     ui::{CELL_HEIGHT, CELL_WIDTH, texture::Texture},
 };
 
@@ -154,6 +154,9 @@ impl GridRenderer {
             bytemuck::cast_slice(&self.instances),
         );
 
+        let sbg: Rgb = DEFAULT_COLORS.bg.into_format();
+        let bg = sbg.into_linear();
+
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -162,9 +165,9 @@ impl GridRenderer {
                 depth_slice: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: DEFAULT_COLORS.black[0] as f64 / 255.0,
-                        g: DEFAULT_COLORS.black[1] as f64 / 255.0,
-                        b: DEFAULT_COLORS.black[2] as f64 / 255.0,
+                        r: bg.red as f64,
+                        g: bg.green as f64,
+                        b: bg.blue as f64,
                         a: 1.0,
                     }),
                     store: wgpu::StoreOp::Store,

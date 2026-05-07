@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use palette::WithAlpha;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
@@ -129,18 +130,8 @@ impl Pane {
                         (view_port.height + start_row - i - 1) as f32,
                     ],
                     atlas_uv: [ax, ay, az, aw],
-                    fg_color: [
-                        cell.fg[0] as f32 / 255.0,
-                        cell.fg[1] as f32 / 255.0,
-                        cell.fg[2] as f32 / 255.0,
-                        1.0,
-                    ],
-                    bg_color: [
-                        cell.bg[0] as f32 / 255.0,
-                        cell.bg[1] as f32 / 255.0,
-                        cell.bg[2] as f32 / 255.0,
-                        1.0,
-                    ],
+                    fg_color: cell.fg.with_alpha(1.0).into_linear().into(),
+                    bg_color: cell.bg.with_alpha(1.0).into_linear().into(),
                 });
             }
         }

@@ -1,49 +1,62 @@
-pub type Rgb = [u8; 3];
+use palette::Srgb;
+pub type Rgb = Srgb;
 
 pub struct ColorProfile {
-    pub black: Rgb,
-    pub red: Rgb,
-    pub green: Rgb,
-    pub yellow: Rgb,
-    pub blue: Rgb,
-    pub purple: Rgb,
-    pub cyan: Rgb,
-    pub white: Rgb,
-    pub bright_black: Rgb,
-    pub bright_red: Rgb,
-    pub bright_green: Rgb,
-    pub bright_yellow: Rgb,
-    pub bright_blue: Rgb,
-    pub bright_purple: Rgb,
-    pub bright_cyan: Rgb,
-    pub bright_white: Rgb,
-}
-
-pub fn normalize_with_alpha(color: &[u8; 3], alpha: f32) -> [f32; 4] {
-    let a = alpha.clamp(0.0, 1.0);
-    [
-        color[0] as f32 / 255.0,
-        color[1] as f32 / 255.0,
-        color[2] as f32 / 255.0,
-        a,
-    ]
+    pub fg: Srgb<u8>,
+    pub bg: Srgb<u8>,
+    pub black: Srgb<u8>,
+    pub red: Srgb<u8>,
+    pub green: Srgb<u8>,
+    pub yellow: Srgb<u8>,
+    pub blue: Srgb<u8>,
+    pub purple: Srgb<u8>,
+    pub cyan: Srgb<u8>,
+    pub white: Srgb<u8>,
+    pub bright_black: Srgb<u8>,
+    pub bright_red: Srgb<u8>,
+    pub bright_green: Srgb<u8>,
+    pub bright_yellow: Srgb<u8>,
+    pub bright_blue: Srgb<u8>,
+    pub bright_purple: Srgb<u8>,
+    pub bright_cyan: Srgb<u8>,
+    pub bright_white: Srgb<u8>,
 }
 
 pub const DEFAULT_COLORS: &ColorProfile = &ColorProfile {
-    black: [b'\x08'; 3],
-    red: [b'\xd2', b'\x00', b'\x00'],
-    green: [b'\x6a', b'\x99', b'\x55'],
-    yellow: [b'\xf0', b'\xe6', b'\x8c'],
-    blue: [b'\x0d', b'\x73', b'\xcc'],
-    purple: [b'\x77', b'\x2f', b'\xb0'],
-    cyan: [b'\x27', b'\x93', b'\x70'],
-    white: [b'\xcc'; 3],
-    bright_black: [b'\x1f'; 3],
-    bright_red: [b'\xff', b'\x27', b'\x27'],
-    bright_green: [b'\x84', b'\xbf', b'\x6a'],
-    bright_yellow: [b'\xff', b'\xff', b'\x55'],
-    bright_blue: [b'\x1a', b'\x8f', b'\xff'],
-    bright_purple: [b'\x69', b'\x5a', b'\xbc'],
-    bright_cyan: [b'\x31', b'\xb9', b'\x8d'],
-    bright_white: [b'\x9d'; 3],
+    // #cccccc
+    fg: Srgb::<u8>::new(0xcc, 0xcc, 0xcc),
+    // #1f1f1f
+    bg: Srgb::<u8>::new(0x1f, 0x1f, 0x1f),
+    // #080808
+    black: Srgb::new(0x08, 0x08, 0x08),
+    // #d20000
+    red: Srgb::new(0xd2, 0x00, 0x00),
+    // #6a9955
+    green: Srgb::new(0x6a, 0x99, 0x55),
+    // #f0e68c
+    yellow: Srgb::new(0xf0, 0xe6, 0x8c),
+    // #0d73cc
+    blue: Srgb::new(0x0d, 0x73, 0xcc),
+    // #772fb0
+    purple: Srgb::new(0x77, 0x2f, 0xb0),
+    //  #279370
+    cyan: Srgb::new(0x27, 0x93, 0x70),
+    // #cccccc
+    white: Srgb::new(0xcc, 0xcc, 0xcc),
+    // #1f1f1f
+    bright_black: Srgb::new(0x1f, 0x1f, 0x1f),
+    // #ff2727
+    bright_red: Srgb::new(0xff, 0x27, 0x27),
+    // #84bf6a
+    bright_green: Srgb::new(0x84, 0xbf, 0x6a),
+    // #ffff55
+    bright_yellow: Srgb::new(0xff, 0xff, 0x55),
+    // #1a8fff
+    bright_blue: Srgb::new(0x1a, 0x8f, 0xff),
+    // #695abc
+    bright_purple: Srgb::new(0x69, 0x5a, 0xbc),
+    // #31b98d
+    bright_cyan: Srgb::new(0x31, 0xb9, 0x8d),
+    // #9d9d9d
+    bright_white: Srgb::new(0x9d, 0x9d, 0x9d),
 };
