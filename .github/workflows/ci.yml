@@ -42,6 +42,9 @@ jobs:
         with:
           shared-key: "ci-cache"
 
+      - name: Install Dependencies
+        run: sudo apt-get -y install libfontconfig1-dev
+
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
@@ -59,6 +62,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "ci-cache"
+
+      - name: Install Dependencies
+        run: sudo apt-get -y install libfontconfig1-dev
 
       - name: Run tests
         run: cargo test --all-targets --all-features
