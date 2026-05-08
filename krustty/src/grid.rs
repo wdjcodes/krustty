@@ -101,6 +101,8 @@ pub struct Grid {
     pub view_offset: usize,
     /// The offset into the grid where the cursor currently is
     pub cursor: Cursor,
+    /// Template to use when creating a new cell
+    pub template_cell: Cell,
 }
 
 impl Grid {
@@ -117,6 +119,12 @@ impl Grid {
             height,
             view_offset: 0,
             cursor: Default::default(),
+            template_cell: Cell {
+                c: ' ',
+                fg: DEFAULT_COLORS.fg.into_format(),
+                bg: DEFAULT_COLORS.bg.into_format(),
+                flags: CellFlags::NONE,
+            },
         }
     }
 
@@ -213,21 +221,16 @@ impl Grid {
         self.view_offset = self.view_offset.saturating_sub(1);
     }
 
-    pub fn write_at_cursor(&mut self, c: char, fg: Rgb, bg: Rgb) {
+    pub fn write_at_cursor(&mut self, c: char) {
         if self.cursor.will_wrap {
             self.advance_cursor(1);
         }
-        if let Some(cell) = self.rows[self.cursor.row].cells.get_mut(self.cursor.col) {
-            cell.c = c;
-            cell.fg = fg;
-            cell.bg = bg;
+        let mut cell = self.template_cell;
+        cell.c = c;
+        if self.rows[self.cursor.row].cells.len() > self.cursor.col {
+            self.rows[self.cursor.row].cells[self.cursor.col] = cell;
         } else {
-            self.rows[self.cursor.row].cells.push(Cell {
-                c,
-                fg,
-                bg,
-                flags: CellFlags::NONE,
-            });
+            self.rows[self.cursor.row].cells.push(cell);
         }
         self.advance_cursor(1);
     }
@@ -274,5 +277,21 @@ impl Grid {
     /// Returns the number of rows currently in the grid
     pub fn rows(&self) -> usize {
         self.rows.len()
+    }
+
+    pub fn set_fg(&mut self, fg: Rgb) {
+        self.template_cell.fg = fg;
+    }
+
+    pub fn set_bg(&mut self, bg: Rgb) {
+        self.template_cell.bg = bg;
+    }
+
+    pub fn set_inverse(&mut self, inverse: bool) {
+        if inverse {
+            self.template_cell.flags |= CellFlags::INVERSE;
+        } else {
+            self.template_cell.flags &= !CellFlags::INVERSE;
+        }
     }
 }

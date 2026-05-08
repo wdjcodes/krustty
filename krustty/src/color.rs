@@ -24,9 +24,9 @@ pub struct ColorProfile {
 
 pub const DEFAULT_COLORS: &ColorProfile = &ColorProfile {
     // #cccccc
-    fg: Srgb::<u8>::new(0xcc, 0xcc, 0xcc),
+    fg: Srgb::new(0xcc, 0xcc, 0xcc),
     // #1f1f1f
-    bg: Srgb::<u8>::new(0x1f, 0x1f, 0x1f),
+    bg: Srgb::new(0x1f, 0x1f, 0x1f),
     // #080808
     black: Srgb::new(0x08, 0x08, 0x08),
     // #d20000

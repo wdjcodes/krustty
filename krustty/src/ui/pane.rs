@@ -8,6 +8,7 @@ use palette::WithAlpha;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
+    grid::CellFlags,
     pty::Pty,
     terminal::Terminal,
     ui::{
@@ -123,6 +124,11 @@ impl Pane {
                 let ay = glyph.y as f32 / atlas_size;
                 let az = ax + CELL_WIDTH / atlas_size;
                 let aw = ay + CELL_HEIGHT / atlas_size;
+                let mut fg_color = cell.fg.with_alpha(1.0).into_linear().into();
+                let mut bg_color = cell.bg.with_alpha(1.0).into_linear().into();
+                if cell.flags.contains(CellFlags::INVERSE) {
+                    std::mem::swap(&mut fg_color, &mut bg_color);
+                }
                 instances.push(CellInstance {
                     screen_pos: [
                         j as f32,
@@ -130,8 +136,8 @@ impl Pane {
                         (view_port.height + start_row - i - 1) as f32,
                     ],
                     atlas_uv: [ax, ay, az, aw],
-                    fg_color: cell.fg.with_alpha(1.0).into_linear().into(),
-                    bg_color: cell.bg.with_alpha(1.0).into_linear().into(),
+                    fg_color,
+                    bg_color,
                 });
             }
         }
