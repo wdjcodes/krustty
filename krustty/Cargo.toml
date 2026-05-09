@@ -14,6 +14,7 @@ profiling = []
 anyhow = "1.0.102"
 bitflags = "2.11.0"
 bytemuck = "1.25.0"
+color-hex = "0.2.0"
 fontconfig = "0.10.2"
 fontdue = "0.9.3"
 log = "0.4.29"
