@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/wdjcodes/krustty/compare/v0.1.1...v0.1.2) - 2026-05-09
+
+### Added
+
+- add support for inverse color mode
+- replace print with tracing library
+
+### Fixed
+
+- replace fontconfig provider to use native library
+
+### Other
+
+- change default theme to look like breeze
+- use functionality in fontconfig-v0.10.2, add log facade
+- use palette crate for color management
+
 ## [0.1.1](https://github.com/wdjcodes/krustty/compare/v0.1.0...v0.1.1) - 2026-05-01
 
 ### Added
