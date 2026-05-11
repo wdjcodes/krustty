@@ -13,8 +13,6 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-latest
-    container:
-      image: wdjcodes/krustty-ubuntu
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,11 +28,12 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    container:
-      image: wdjcodes/krustty-ubuntu
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
 
       - name: Set up stable Rust
         uses: dtolnay/rust-toolchain@1.94.1
@@ -52,11 +51,12 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    container:
-      image: wdjcodes/krustty-ubuntu
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
 
       - name: Set up stable Rust
         uses: dtolnay/rust-toolchain@1.94.1
