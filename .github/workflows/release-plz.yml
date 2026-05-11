@@ -9,13 +9,13 @@ jobs:
   release-plz-release:
     name: Release-plz release
     runs-on: ubuntu-latest
-    container:
-      image: wdjcodes/krustty-ubuntu
     if: ${{ github.repository_owner == 'wdjcodes' }}
     permissions:
       contents: write
       id-token: write
     steps:
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
       - &checkout
         name: Checkout repository
         uses: actions/checkout@v6
@@ -45,6 +45,8 @@ jobs:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
     steps:
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
       - *checkout
       - *install-rust
       - name: Run release-plz
