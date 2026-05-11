@@ -5,9 +5,9 @@ use std::{
 };
 
 use crate::{terminal::Terminal, ui::Event};
+use log::{debug, error};
 use portable_pty::{Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
 use rtrb::{Consumer, CopyToUninit, Producer, RingBuffer};
-use tracing::{debug, error};
 
 pub struct Pty {
     _pty_reader: JoinHandle<()>,
