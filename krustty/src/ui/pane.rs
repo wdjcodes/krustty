@@ -8,7 +8,7 @@ use palette::WithAlpha;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    grid::CellFlags,
+    grid::{CellFlags, Cursor},
     pty::Pty,
     terminal::Terminal,
     ui::{
@@ -50,8 +50,7 @@ impl Pane {
 
         let view_port = ViewPort {
             height: rows,
-            start: 0.0,
-            max_rows: 0,
+            offset: 0,
             scroll_queued: 0.0,
         };
 
@@ -102,14 +101,15 @@ impl Pane {
         instances.clear();
 
         let view_port = &mut self.view_port;
-
-        view_port.max_rows = term.grid.rows();
-        view_port.start = view_port.start.clamp(
-            0.0,
-            view_port.max_rows.saturating_sub(view_port.height) as f64,
+        view_port.apply_scroll(term.grid.rows());
+        let start_row = grid
+            .rows()
+            .saturating_sub(view_port.offset + view_port.height);
+        log::debug!(
+            "Rendering rows: {}..{}",
+            start_row,
+            std::cmp::min(start_row + view_port.height, grid.rows().saturating_sub(1))
         );
-        view_port.scroll_queued -= view_port.scroll_queued.trunc();
-        let start_row = view_port.start.floor() as usize;
         for i in start_row..std::cmp::min(start_row + view_port.height, grid.rows()) {
             let row = grid.get_row(i);
             for j in 0..row.cells.len() {
@@ -130,11 +130,7 @@ impl Pane {
                     std::mem::swap(&mut fg_color, &mut bg_color);
                 }
                 instances.push(CellInstance {
-                    screen_pos: [
-                        j as f32,
-                        // TODO: Change this when a proper viewport is added
-                        (view_port.height + start_row - i - 1) as f32,
-                    ],
+                    screen_pos: [j as f32, (i - start_row) as f32],
                     atlas_uv: [ax, ay, az, aw],
                     fg_color,
                     bg_color,
@@ -142,8 +138,15 @@ impl Pane {
             }
         }
 
-        self.cursor_render
-            .set_cursor(view_port.grid_to_viewport(&grid.cursor));
+        if let Some(row) = view_port.grid_to_viewport(grid.cursor.row, grid.rows()) {
+            self.cursor_render.set_cursor(Some(Cursor {
+                col: grid.cursor.col,
+                row,
+                will_wrap: false,
+            }));
+        } else {
+            self.cursor_render.set_cursor(None);
+        }
     }
 
     pub fn render(&mut self, view: &wgpu::TextureView, encoder: &mut wgpu::CommandEncoder) {

@@ -35,8 +35,6 @@ jobs:
   release-plz-pr:
     name: Release-plz PR
     runs-on: ubuntu-latest
-    container:
-      image: wdjcodes/krustty-ubuntu
     if: ${{ github.repository_owner == 'wdjcodes' }}
     permissions:
       pull-requests: write

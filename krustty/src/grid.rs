@@ -97,8 +97,6 @@ pub struct Grid {
     pub width: usize,
     /// Current number of rows in the active viewport
     pub height: usize,
-    /// Current offset into history from which viewport starts
-    pub view_offset: usize,
     /// The offset into the grid where the cursor currently is
     pub cursor: Cursor,
     /// Template to use when creating a new cell
@@ -108,16 +106,13 @@ pub struct Grid {
 impl Grid {
     pub fn new(width: usize, height: usize, max_rows: usize) -> Self {
         let mut rows = VecDeque::<Row>::with_capacity(max_rows);
-        for _ in 0..height {
-            rows.push_front(Row::new(width));
-        }
+        rows.push_back(Row::new(width));
 
         Grid {
             rows,
             max_rows,
             width,
             height,
-            view_offset: 0,
             cursor: Default::default(),
             template_cell: Cell {
                 c: ' ',
@@ -141,7 +136,7 @@ impl Grid {
             will_wrap: false,
         };
 
-        for (i, row) in self.rows.iter_mut().enumerate() {
+        for (i, row) in self.rows.iter_mut().enumerate().rev() {
             let mut r = std::mem::take(&mut row.cells);
             if self.cursor.row == i {
                 cursor_line.row = lines.len();
@@ -154,18 +149,18 @@ impl Grid {
                     .rposition(|c| !c.is_empty())
                     .map_or(row.cells.len(), |idx| idx + 1);
                 r.truncate(len);
-                let wrap = lines.pop_back().unwrap();
+                let wrap = lines.pop_front().unwrap();
                 if cursor_line.row == lines.len() && self.cursor.row != i {
                     cursor_line.col += r.len();
                 }
                 r.extend_from_slice(&wrap);
             }
-            lines.push_back(r);
+            lines.push_front(r);
         }
 
         let mut cursor_placed = false;
         let mut new_rows = VecDeque::with_capacity(self.max_rows);
-        for (i, line) in lines.into_iter().enumerate().rev() {
+        for (i, line) in lines.into_iter().enumerate() {
             let mut start = 0;
             let mut to_copy = line.len();
             loop {
@@ -185,13 +180,13 @@ impl Grid {
                 start += slice_len;
                 to_copy -= slice_len;
                 if to_copy == 0 {
-                    new_rows.push_front(Row {
+                    new_rows.push_back(Row {
                         cells,
                         is_wrapped: false,
                     });
                     break;
                 } else {
-                    new_rows.push_front(Row {
+                    new_rows.push_back(Row {
                         cells,
                         is_wrapped: true,
                     });
@@ -207,18 +202,6 @@ impl Grid {
             self.cursor.row,
             self.cursor.col,
         );
-    }
-
-    #[expect(unused)]
-    pub fn scroll_up(&mut self) {
-        if self.rows.len() - self.height > self.view_offset {
-            self.view_offset += 1;
-        }
-    }
-
-    #[expect(unused)]
-    pub fn scroll_down(&mut self) {
-        self.view_offset = self.view_offset.saturating_sub(1);
     }
 
     pub fn write_at_cursor(&mut self, c: char) {
@@ -238,12 +221,11 @@ impl Grid {
     pub fn advance_cursor(&mut self, cols: usize) {
         self.cursor.will_wrap = false;
         if self.cursor.col + cols > self.width {
-            if self.cursor.row == 0 {
+            if self.cursor.row == self.rows().saturating_sub(1) {
                 self.rows[0].is_wrapped = true;
-                self.rows.push_front(Row::new(self.width));
-            } else {
-                self.cursor.row -= 1;
+                self.rows.push_back(Row::new(self.width));
             }
+            self.cursor.row += 1;
             self.cursor.col = 0;
         } else if self.cursor.col + cols == self.width {
             self.cursor.col = self.width;
@@ -255,11 +237,11 @@ impl Grid {
     }
 
     pub fn line_feed(&mut self) {
-        if self.cursor.row == 0 {
-            self.rows.push_front(Row::new(self.width));
-        } else {
-            self.cursor.row -= 1;
+        if self.cursor.row == self.rows().saturating_sub(1) {
+            self.rows.push_back(Row::new(self.width));
         }
+        self.cursor.row += 1;
+        self.cursor.will_wrap = false;
     }
 
     pub fn carriage_return(&mut self) {

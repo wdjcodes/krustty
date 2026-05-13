@@ -29,7 +29,7 @@ impl Terminal {
     pub fn clear_screen_to_end(&mut self) {
         let row = self.grid.cursor.row;
         self.clear_line_to_end();
-        for i in (0..row).rev() {
+        for i in row..self.grid.rows() {
             self.clear_line(i);
         }
     }
@@ -158,12 +158,17 @@ impl Perform for Terminal {
             'A' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&1);
                 count = if *count == 0 { &1 } else { count };
-                self.grid.cursor.row = self.grid.cursor.row.saturating_add(*count as usize);
+                self.grid.cursor.row = self.grid.cursor.row.saturating_sub(*count as usize);
             }
             'B' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
                 count = if *count == 0 { &1 } else { count };
-                self.grid.cursor.row = self.grid.cursor.row.saturating_sub(*count as usize);
+                self.grid.cursor.row = self
+                    .grid
+                    .cursor
+                    .row
+                    .saturating_add(*count as usize)
+                    .clamp(0, self.grid.rows() - 1);
             }
             'C' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);

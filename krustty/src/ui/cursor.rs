@@ -145,7 +145,7 @@ impl CursorRenderer {
             self.cursor_inst = Some(CursorInstance {
                 screen_pos: [
                     cursor.col as f32 * CELL_WIDTH,
-                    self.globals.surface_size[1] - cursor.row as f32 * CELL_HEIGHT - CELL_HEIGHT,
+                    cursor.row as f32 * CELL_HEIGHT,
                 ],
                 size: [2.0, CELL_HEIGHT],
                 fg_color: self.color.with_alpha(1.0).into_linear().into(),
