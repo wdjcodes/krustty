@@ -8,12 +8,17 @@ pub struct Terminal {
     pub grid: Grid,
 
     pub event_loop: EventLoopProxy<Event>,
+    response_buffer: Vec<u8>,
 }
 
 impl Terminal {
     pub fn new(event_loop: EventLoopProxy<Event>, width: usize, height: usize) -> Self {
         let grid = Grid::new(width, height, 1000);
-        Self { grid, event_loop }
+        Self {
+            grid,
+            event_loop,
+            response_buffer: vec![],
+        }
     }
 
     pub fn print(&mut self, c: char) {
@@ -37,7 +42,7 @@ impl Terminal {
     pub fn clear_to_start(&mut self) {
         let col = self.grid.cursor.col;
         let row = self.grid.cursor.row;
-        for i in 0..=col {
+        for i in 0..std::cmp::min(col + 1, self.grid.rows[row].cells.len()) {
             self.grid.rows[row].cells[i].c = ' ';
         }
     }
@@ -48,6 +53,10 @@ impl Terminal {
 
     pub fn clear_current_line(&mut self) {
         self.clear_line(self.grid.cursor.row);
+    }
+
+    pub fn take_response(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.response_buffer)
     }
 }
 
@@ -97,6 +106,19 @@ impl Perform for Terminal {
         action: char,
     ) {
         match action {
+            'c' => {
+                let code = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
+                match code {
+                    0 => {
+                        self.response_buffer.extend_from_slice(b"\x1b[?62;22c");
+                        let _ = self.event_loop.send_event(Event::SendPtyResponse);
+                    }
+                    code => info!(
+                        "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
+                        intermediates, code, action
+                    ),
+                }
+            }
             'm' => {
                 for param in params {
                     let code = param.first().unwrap_or(&255);

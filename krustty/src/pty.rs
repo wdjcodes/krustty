@@ -67,8 +67,7 @@ impl Pty {
         }
     }
 
-    pub fn send_input(&mut self, input: &str) {
-        let bytes = input.as_bytes();
+    pub fn send_input(&mut self, bytes: &[u8]) {
         if let Ok(mut chunk) = self.input.write_chunk_uninit(bytes.len()) {
             let (slice1, slice2) = chunk.as_mut_slices();
             let wrap = slice1.len();

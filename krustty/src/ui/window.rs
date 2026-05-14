@@ -17,7 +17,7 @@ pub struct WindowContext {
     cache: Rc<RefCell<GlyphCache>>,
     is_surface_configured: bool,
     new_size: Option<PhysicalSize<u32>>,
-    pane: Pane,
+    pub pane: Pane,
 }
 
 impl WindowContext {

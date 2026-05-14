@@ -65,6 +65,7 @@ pub struct Application {
 
 pub enum Event {
     WakeUp,
+    SendPtyResponse,
 }
 
 impl Application {
@@ -134,16 +135,16 @@ impl ApplicationHandler<Event> for Application {
                 // key events without making match statement even larger
                 match event.logical_key {
                     winit::keyboard::Key::Named(NamedKey::ArrowUp) => {
-                        window.pty().send_input("\x1b[A")
+                        window.pty().send_input(b"\x1b[A")
                     }
                     winit::keyboard::Key::Named(NamedKey::ArrowDown) => {
-                        window.pty().send_input("\x1b[B")
+                        window.pty().send_input(b"\x1b[B")
                     }
                     winit::keyboard::Key::Named(NamedKey::ArrowLeft) => {
-                        window.pty().send_input("\x1b[D")
+                        window.pty().send_input(b"\x1b[D")
                     }
                     winit::keyboard::Key::Named(NamedKey::ArrowRight) => {
-                        window.pty().send_input("\x1b[C")
+                        window.pty().send_input(b"\x1b[C")
                     }
                     winit::keyboard::Key::Named(name) => info!("Unhandled key: {:?}", name),
                     _ => (),
@@ -151,7 +152,7 @@ impl ApplicationHandler<Event> for Application {
                 if let Some(text) = event.text {
                     let id = *self.windows.keys().next().unwrap();
                     let window = self.windows.get_mut(&id).unwrap();
-                    window.pty().send_input(&text);
+                    window.pty().send_input(text.as_bytes());
                 }
             }
             WindowEvent::Resized(size) => window.request_resize(size),
@@ -169,11 +170,15 @@ impl ApplicationHandler<Event> for Application {
     }
 
     fn user_event(&mut self, _event_loop: &event_loop::ActiveEventLoop, event: Event) {
+        let id = *self.windows.keys().next().unwrap();
+        let window = self.windows.get_mut(&id).unwrap();
         match event {
             Event::WakeUp => {
-                let id = *self.windows.keys().next().unwrap();
-                let window = self.windows.get_mut(&id).unwrap();
                 window.window.request_redraw();
+            }
+            Event::SendPtyResponse => {
+                let mut term = window.pane.term.lock().expect("failed to lock term");
+                window.pane.pty.send_input(&term.take_response());
             }
         }
     }
