@@ -21,40 +21,6 @@ impl Terminal {
         }
     }
 
-    pub fn print(&mut self, c: char) {
-        self.grid.write_at_cursor(c);
-    }
-
-    pub fn clear_line_to_end(&mut self) {
-        let col = self.grid.cursor.col;
-        let row = &mut self.grid.rows[self.grid.cursor.row];
-        row.cells.truncate(col);
-    }
-
-    pub fn clear_screen_to_end(&mut self) {
-        let row = self.grid.cursor.row;
-        self.clear_line_to_end();
-        for i in row..self.grid.rows() {
-            self.clear_line(i);
-        }
-    }
-
-    pub fn clear_to_start(&mut self) {
-        let col = self.grid.cursor.col;
-        let row = self.grid.cursor.row;
-        for i in 0..std::cmp::min(col + 1, self.grid.rows[row].cells.len()) {
-            self.grid.rows[row].cells[i].c = ' ';
-        }
-    }
-
-    pub fn clear_line(&mut self, row: usize) {
-        self.grid.rows[row].cells.fill(Default::default());
-    }
-
-    pub fn clear_current_line(&mut self) {
-        self.clear_line(self.grid.cursor.row);
-    }
-
     pub fn take_response(&mut self) -> Vec<u8> {
         std::mem::take(&mut self.response_buffer)
     }
@@ -62,7 +28,7 @@ impl Terminal {
 
 impl Perform for Terminal {
     fn print(&mut self, c: char) {
-        self.print(c);
+        self.grid.write_at_cursor(c);
     }
 
     fn execute(&mut self, byte: u8) {
@@ -105,6 +71,7 @@ impl Perform for Terminal {
         _ignore: bool,
         action: char,
     ) {
+        let grid = &mut self.grid;
         match action {
             'c' => {
                 let code = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
@@ -124,49 +91,49 @@ impl Perform for Terminal {
                     let code = param.first().unwrap_or(&255);
                     match code {
                         0 => {
-                            self.grid.set_fg(DEFAULT_COLORS.fg.into_format());
-                            self.grid.set_bg(DEFAULT_COLORS.bg.into_format());
+                            grid.set_fg(DEFAULT_COLORS.fg.into_format());
+                            grid.set_bg(DEFAULT_COLORS.bg.into_format());
                         }
-                        7 => self.grid.set_inverse(true),
-                        27 => self.grid.set_inverse(false),
+                        7 => grid.set_inverse(true),
+                        27 => grid.set_inverse(false),
                         // Foreground
-                        30 => self.grid.set_fg(DEFAULT_COLORS.black.into_format()),
-                        31 => self.grid.set_fg(DEFAULT_COLORS.red.into_format()),
-                        32 => self.grid.set_fg(DEFAULT_COLORS.green.into_format()),
-                        33 => self.grid.set_fg(DEFAULT_COLORS.yellow.into_format()),
-                        34 => self.grid.set_fg(DEFAULT_COLORS.blue.into_format()),
-                        35 => self.grid.set_fg(DEFAULT_COLORS.purple.into_format()),
-                        36 => self.grid.set_fg(DEFAULT_COLORS.cyan.into_format()),
-                        37 => self.grid.set_fg(DEFAULT_COLORS.white.into_format()),
-                        39 => self.grid.set_fg(DEFAULT_COLORS.white.into_format()),
+                        30 => grid.set_fg(DEFAULT_COLORS.black.into_format()),
+                        31 => grid.set_fg(DEFAULT_COLORS.red.into_format()),
+                        32 => grid.set_fg(DEFAULT_COLORS.green.into_format()),
+                        33 => grid.set_fg(DEFAULT_COLORS.yellow.into_format()),
+                        34 => grid.set_fg(DEFAULT_COLORS.blue.into_format()),
+                        35 => grid.set_fg(DEFAULT_COLORS.purple.into_format()),
+                        36 => grid.set_fg(DEFAULT_COLORS.cyan.into_format()),
+                        37 => grid.set_fg(DEFAULT_COLORS.white.into_format()),
+                        39 => grid.set_fg(DEFAULT_COLORS.white.into_format()),
                         // Background
-                        40 => self.grid.set_bg(DEFAULT_COLORS.black.into_format()),
-                        41 => self.grid.set_bg(DEFAULT_COLORS.red.into_format()),
-                        42 => self.grid.set_bg(DEFAULT_COLORS.green.into_format()),
-                        43 => self.grid.set_bg(DEFAULT_COLORS.yellow.into_format()),
-                        44 => self.grid.set_bg(DEFAULT_COLORS.blue.into_format()),
-                        45 => self.grid.set_bg(DEFAULT_COLORS.purple.into_format()),
-                        46 => self.grid.set_bg(DEFAULT_COLORS.cyan.into_format()),
-                        47 => self.grid.set_bg(DEFAULT_COLORS.white.into_format()),
-                        49 => self.grid.set_bg(DEFAULT_COLORS.black.into_format()),
+                        40 => grid.set_bg(DEFAULT_COLORS.black.into_format()),
+                        41 => grid.set_bg(DEFAULT_COLORS.red.into_format()),
+                        42 => grid.set_bg(DEFAULT_COLORS.green.into_format()),
+                        43 => grid.set_bg(DEFAULT_COLORS.yellow.into_format()),
+                        44 => grid.set_bg(DEFAULT_COLORS.blue.into_format()),
+                        45 => grid.set_bg(DEFAULT_COLORS.purple.into_format()),
+                        46 => grid.set_bg(DEFAULT_COLORS.cyan.into_format()),
+                        47 => grid.set_bg(DEFAULT_COLORS.white.into_format()),
+                        49 => grid.set_bg(DEFAULT_COLORS.black.into_format()),
                         // Bright Foreground
-                        90 => self.grid.set_fg(DEFAULT_COLORS.bright_black.into_format()),
-                        91 => self.grid.set_fg(DEFAULT_COLORS.bright_red.into_format()),
-                        92 => self.grid.set_fg(DEFAULT_COLORS.bright_green.into_format()),
-                        93 => self.grid.set_fg(DEFAULT_COLORS.bright_yellow.into_format()),
-                        94 => self.grid.set_fg(DEFAULT_COLORS.bright_blue.into_format()),
-                        95 => self.grid.set_fg(DEFAULT_COLORS.bright_purple.into_format()),
-                        96 => self.grid.set_fg(DEFAULT_COLORS.bright_cyan.into_format()),
-                        97 => self.grid.set_fg(DEFAULT_COLORS.bright_white.into_format()),
+                        90 => grid.set_fg(DEFAULT_COLORS.bright_black.into_format()),
+                        91 => grid.set_fg(DEFAULT_COLORS.bright_red.into_format()),
+                        92 => grid.set_fg(DEFAULT_COLORS.bright_green.into_format()),
+                        93 => grid.set_fg(DEFAULT_COLORS.bright_yellow.into_format()),
+                        94 => grid.set_fg(DEFAULT_COLORS.bright_blue.into_format()),
+                        95 => grid.set_fg(DEFAULT_COLORS.bright_purple.into_format()),
+                        96 => grid.set_fg(DEFAULT_COLORS.bright_cyan.into_format()),
+                        97 => grid.set_fg(DEFAULT_COLORS.bright_white.into_format()),
                         // Bright Background
-                        100 => self.grid.set_bg(DEFAULT_COLORS.bright_black.into_format()),
-                        101 => self.grid.set_bg(DEFAULT_COLORS.bright_red.into_format()),
-                        102 => self.grid.set_bg(DEFAULT_COLORS.bright_green.into_format()),
-                        103 => self.grid.set_bg(DEFAULT_COLORS.bright_yellow.into_format()),
-                        104 => self.grid.set_bg(DEFAULT_COLORS.bright_blue.into_format()),
-                        105 => self.grid.set_bg(DEFAULT_COLORS.bright_purple.into_format()),
-                        106 => self.grid.set_bg(DEFAULT_COLORS.bright_cyan.into_format()),
-                        107 => self.grid.set_bg(DEFAULT_COLORS.bright_white.into_format()),
+                        100 => grid.set_bg(DEFAULT_COLORS.bright_black.into_format()),
+                        101 => grid.set_bg(DEFAULT_COLORS.bright_red.into_format()),
+                        102 => grid.set_bg(DEFAULT_COLORS.bright_green.into_format()),
+                        103 => grid.set_bg(DEFAULT_COLORS.bright_yellow.into_format()),
+                        104 => grid.set_bg(DEFAULT_COLORS.bright_blue.into_format()),
+                        105 => grid.set_bg(DEFAULT_COLORS.bright_purple.into_format()),
+                        106 => grid.set_bg(DEFAULT_COLORS.bright_cyan.into_format()),
+                        107 => grid.set_bg(DEFAULT_COLORS.bright_white.into_format()),
 
                         code => {
                             info!(
@@ -205,7 +172,8 @@ impl Perform for Terminal {
             'J' => {
                 let mode = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
                 match mode {
-                    0 => self.clear_screen_to_end(),
+                    0 => grid.clear_screen_to_end(),
+                    2 => grid.clear_screen(),
                     _ => {
                         info!(
                             "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
@@ -221,13 +189,13 @@ impl Perform for Terminal {
 
                 match mode {
                     0 => {
-                        self.clear_line_to_end();
+                        grid.clear_line_to_end();
                     }
                     1 => {
-                        self.clear_to_start();
+                        grid.clear_to_start();
                     }
                     2 => {
-                        self.clear_current_line();
+                        grid.clear_current_line();
                     }
                     _ => {
                         info!(

@@ -256,6 +256,47 @@ impl Grid {
         &self.rows[idx]
     }
 
+    pub fn clear_screen(&mut self) {
+        let row = self.cursor.row;
+        for i in row..(row + self.height) {
+            if i < self.rows() {
+                self.clear_line(i);
+            } else {
+                self.line_feed();
+            }
+        }
+    }
+
+    pub fn clear_screen_to_end(&mut self) {
+        let row = self.cursor.row;
+        self.clear_line_to_end();
+        for i in row..self.rows() {
+            self.clear_line(i);
+        }
+    }
+
+    pub fn clear_current_line(&mut self) {
+        self.clear_line(self.cursor.row);
+    }
+
+    pub fn clear_line(&mut self, row: usize) {
+        self.rows[row].cells.fill(Default::default());
+    }
+
+    pub fn clear_line_to_end(&mut self) {
+        let col = self.cursor.col;
+        let row = &mut self.rows[self.cursor.row];
+        row.cells.truncate(col);
+    }
+
+    pub fn clear_to_start(&mut self) {
+        let col = self.cursor.col;
+        let row = self.cursor.row;
+        for i in 0..std::cmp::min(col + 1, self.rows[row].cells.len()) {
+            self.rows[row].cells[i].c = ' ';
+        }
+    }
+
     /// Returns the number of rows currently in the grid
     pub fn rows(&self) -> usize {
         self.rows.len()
