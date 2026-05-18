@@ -248,8 +248,56 @@ impl Grid {
         self.cursor.col = 0;
     }
 
-    pub fn left(&mut self) {
-        self.cursor.col = self.cursor.col.saturating_sub(1);
+    pub fn set_cursor(&mut self, row: usize, col: usize) {
+        self.cursor.row = self
+            .rows()
+            .saturating_sub(self.height.saturating_sub(row - 1));
+        self.cursor.col = col.saturating_sub(1);
+        self.log_cursor(format!("set {},{}", row, col));
+    }
+
+    pub fn cursor_up(&mut self, count: usize) {
+        self.cursor.row = self
+            .cursor
+            .row
+            .saturating_sub(count)
+            .clamp(self.rows().saturating_sub(self.height - 1), self.rows() - 1);
+        self.log_cursor(format!("up {}", count));
+    }
+
+    pub fn cursor_down(&mut self, count: usize) {
+        self.cursor.row = self
+            .cursor
+            .row
+            .saturating_add(count)
+            .clamp(0, self.rows() - 1);
+        self.log_cursor(format!("down {}", count));
+    }
+
+    pub fn cursor_left(&mut self, count: usize) {
+        self.cursor.col = self.cursor.col.saturating_sub(count);
+        self.log_cursor(format!("left {}", count));
+    }
+
+    pub fn cursor_right(&mut self, count: usize) {
+        self.cursor.col = self
+            .cursor
+            .col
+            .saturating_add(count)
+            .clamp(0, self.width - 1);
+        self.log_cursor(format!("right {}", count));
+    }
+
+    fn log_cursor(&self, action: String) {
+        log::trace!(
+            "Cursor({}): {}, {} ({}, {}, {})",
+            action,
+            self.cursor.row,
+            self.cursor.col,
+            self.height,
+            self.width,
+            self.rows(),
+        );
     }
 
     pub fn get_row(&self, idx: usize) -> &Row {
@@ -257,7 +305,7 @@ impl Grid {
     }
 
     pub fn clear_screen(&mut self) {
-        let row = self.cursor.row;
+        let row = self.cursor.row + 1;
         for i in row..(row + self.height) {
             if i < self.rows() {
                 self.clear_line(i);
@@ -265,6 +313,8 @@ impl Grid {
                 self.line_feed();
             }
         }
+        self.cursor.row = row + self.height - 1;
+        self.cursor.col = 0;
     }
 
     pub fn clear_screen_to_end(&mut self) {

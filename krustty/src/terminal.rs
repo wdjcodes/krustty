@@ -34,7 +34,6 @@ impl Perform for Terminal {
     fn execute(&mut self, byte: u8) {
         match byte {
             b'\n' => {
-                self.grid.carriage_return();
                 self.grid.line_feed();
             }
             b'\x0B' | b'\x0C' => {
@@ -45,7 +44,7 @@ impl Perform for Terminal {
             }
             b'\x08' => {
                 // Backspace (BS)
-                self.grid.left();
+                self.grid.cursor_left(1);
             }
             b'\t' => {
                 self.grid.advance_cursor(4);
@@ -147,27 +146,47 @@ impl Perform for Terminal {
             'A' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&1);
                 count = if *count == 0 { &1 } else { count };
-                self.grid.cursor.row = self.grid.cursor.row.saturating_sub(*count as usize);
+                grid.cursor_up(*count as usize);
             }
             'B' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
                 count = if *count == 0 { &1 } else { count };
-                self.grid.cursor.row = self
-                    .grid
-                    .cursor
-                    .row
-                    .saturating_add(*count as usize)
-                    .clamp(0, self.grid.rows() - 1);
+                grid.cursor_down(*count as usize);
             }
             'C' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
                 count = if *count == 0 { &1 } else { count };
-                self.grid.cursor.col = self.grid.cursor.col.saturating_add(*count as usize);
+                grid.cursor_right(*count as usize)
             }
             'D' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
                 count = if *count == 0 { &1 } else { count };
-                self.grid.cursor.col = self.grid.cursor.col.saturating_sub(*count as usize);
+                grid.cursor_left(*count as usize);
+            }
+            // Cursor Horizontal Absolute (CHA)
+            'G' | '`' => {
+                let target_col = params.iter().next().and_then(|p| p.first()).unwrap_or(&1);
+
+                // VT coordinates are 1-indexed. Rust arrays are 0-indexed.
+                let zero_indexed_col = (*target_col as usize).saturating_sub(1);
+                self.grid.cursor.col = zero_indexed_col.min(self.grid.width.saturating_sub(1));
+            }
+            // Position cursor [row;column]
+            'H' | 'f' => {
+                let (row, col) = match params.iter().collect::<Vec<&[u16]>>().as_slice() {
+                    [row, col, ..] => {
+                        if let Some(row) = row.first()
+                            && let Some(col) = col.first()
+                        {
+                            (row, col)
+                        } else {
+                            log::debug!("Missing row or column");
+                            return;
+                        }
+                    }
+                    _ => (&1, &1),
+                };
+                grid.set_cursor(*row as usize, *col as usize);
             }
             'J' => {
                 let mode = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
@@ -205,16 +224,6 @@ impl Perform for Terminal {
                     }
                 }
             }
-
-            // Cursor Horizontal Absolute (CHA)
-            'G' | '`' => {
-                let target_col = params.iter().next().and_then(|p| p.first()).unwrap_or(&1);
-
-                // VT coordinates are 1-indexed. Rust arrays are 0-indexed.
-                let zero_indexed_col = (*target_col as usize).saturating_sub(1);
-                self.grid.cursor.col = zero_indexed_col.min(self.grid.width.saturating_sub(1));
-            }
-
             _ => {
                 info!(
                     "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
