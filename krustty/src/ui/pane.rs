@@ -8,25 +8,27 @@ use palette::WithAlpha;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    grid::{CellFlags, Cursor},
     pty::Pty,
-    terminal::Terminal,
+    term::{Terminal, cursor::Cursor, grid::CellFlags},
     ui::{
         Event, GpuHandle,
         cursor::CursorRenderer,
         font::GlyphCache,
         grid::{CellInstance, GridRenderer},
-        view::ViewPort,
     },
 };
 
 pub struct Pane {
     cursor_render: CursorRenderer,
     grid_render: GridRenderer,
-    pub view_port: ViewPort,
     pub pty: Pty,
     pub term: Arc<Mutex<Terminal>>,
     cache: Rc<RefCell<GlyphCache>>,
+    scroll_queued: f64,
+    /// The number of rows scrolled into the scrollback buffer
+    scroll_rows: usize,
+    /// The height of the viewport in rows
+    height_rows: usize,
 }
 
 const CELL_WIDTH: f32 = 10.0;
@@ -48,12 +50,6 @@ impl Pane {
         let pty = Pty::spawn(&shell, term.clone(), cols as u16, rows as u16)
             .expect("Failed to spawn pty");
 
-        let view_port = ViewPort {
-            height: rows,
-            offset: 0,
-            scroll_queued: 0.0,
-        };
-
         let grid_render = GridRenderer::new(
             width,
             height,
@@ -69,10 +65,12 @@ impl Pane {
         Self {
             cursor_render,
             grid_render,
-            view_port,
             pty,
             term,
             cache,
+            scroll_queued: 0.0,
+            scroll_rows: 0,
+            height_rows: rows,
         }
     }
 
@@ -83,8 +81,8 @@ impl Pane {
             .term
             .lock()
             .expect("Failed to lock terminal during resize");
-        self.view_port.height = rows;
-        term.grid.resize(cols, rows);
+
+        term.resize(rows, cols);
         let _ = self.pty.resize(cols as u16, rows as u16);
         self.grid_render.resize(width, height);
         self.cursor_render.resize(width, height);
@@ -100,17 +98,25 @@ impl Pane {
         let instances = &mut self.grid_render.instances;
         instances.clear();
 
-        let view_port = &mut self.view_port;
-        view_port.apply_scroll(term.grid.rows());
-        let start_row = grid
-            .rows()
-            .saturating_sub(view_port.offset + view_port.height);
+        // Apply queued scroll
+        if self.scroll_queued > 1.0 || self.scroll_queued < -1.0 {
+            let rows = self.scroll_queued.trunc();
+            self.scroll_queued -= rows;
+            self.scroll_rows = self
+                .scroll_rows
+                .saturating_add_signed(rows as isize)
+                .clamp(0, term.grid.rows().saturating_sub(self.height_rows));
+        }
+
+        let bottom_row = grid.rows().saturating_sub(self.scroll_rows);
+        let top_row = bottom_row.saturating_sub(self.height_rows);
         log::debug!(
             "Rendering rows: {}..{}",
-            start_row,
-            std::cmp::min(start_row + view_port.height, grid.rows().saturating_sub(1))
+            bottom_row,
+            std::cmp::min(top_row, bottom_row)
         );
-        for i in start_row..std::cmp::min(start_row + view_port.height, grid.rows()) {
+
+        for i in top_row..std::cmp::min(bottom_row, grid.rows()) {
             let row = grid.get_row(i);
             for j in 0..row.cells.len() {
                 let cell = row.get_cell(j);
@@ -130,7 +136,7 @@ impl Pane {
                     std::mem::swap(&mut fg_color, &mut bg_color);
                 }
                 instances.push(CellInstance {
-                    screen_pos: [j as f32, (i - start_row) as f32],
+                    screen_pos: [j as f32, (i - top_row) as f32],
                     atlas_uv: [ax, ay, az, aw],
                     fg_color,
                     bg_color,
@@ -138,12 +144,11 @@ impl Pane {
             }
         }
 
-        if let Some(row) = view_port.grid_to_viewport(grid.cursor.row, grid.rows()) {
-            self.cursor_render.set_cursor(Some(Cursor {
-                col: grid.cursor.col,
-                row,
-                will_wrap: false,
-            }));
+        let mut cursor: Cursor = term.cursor;
+
+        if cursor.row() <= self.height_rows.saturating_sub(self.scroll_rows) {
+            cursor.set_from_point((cursor.row() + self.scroll_rows, cursor.col()));
+            self.cursor_render.set_cursor(Some(cursor));
         } else {
             self.cursor_render.set_cursor(None);
         }
@@ -152,5 +157,11 @@ impl Pane {
     pub fn render(&mut self, view: &wgpu::TextureView, encoder: &mut wgpu::CommandEncoder) {
         self.grid_render.render_pass(view, encoder);
         self.cursor_render.render_pass(view, encoder);
+    }
+
+    /// Queue scroll to be applied in a future render pass
+    pub fn queue_scroll(&mut self, rows: f64) -> f64 {
+        self.scroll_queued += rows;
+        self.scroll_queued
     }
 }

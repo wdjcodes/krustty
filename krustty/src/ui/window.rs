@@ -130,8 +130,7 @@ impl WindowContext {
     }
 
     pub fn scroll_lines(&mut self, rows: f32) {
-        let view_port = &mut self.pane.view_port;
-        let scroll_queued = view_port.queue_scroll(rows as f64);
+        let scroll_queued = self.pane.queue_scroll(rows as f64);
 
         if scroll_queued >= 1.0 || scroll_queued <= -1.0 {
             self.window.request_redraw();

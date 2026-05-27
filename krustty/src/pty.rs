@@ -4,7 +4,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use crate::{terminal::Terminal, ui::Event};
+use crate::{term::Terminal, ui::Event};
 use log::{debug, error};
 use portable_pty::{Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem};
 use rtrb::{Consumer, CopyToUninit, Producer, RingBuffer};

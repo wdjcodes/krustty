@@ -5,7 +5,7 @@ use wgpu::util::DeviceExt;
 
 use crate::{
     color::{DEFAULT_COLORS, Rgb},
-    grid::Cursor,
+    term::cursor::Cursor,
     ui::{CELL_HEIGHT, CELL_WIDTH},
 };
 
@@ -144,8 +144,8 @@ impl CursorRenderer {
         if let Some(cursor) = cursor {
             self.cursor_inst = Some(CursorInstance {
                 screen_pos: [
-                    cursor.col as f32 * CELL_WIDTH,
-                    cursor.row as f32 * CELL_HEIGHT,
+                    (cursor.col() - 1) as f32 * CELL_WIDTH,
+                    (cursor.row() - 1) as f32 * CELL_HEIGHT,
                 ],
                 size: [2.0, CELL_HEIGHT],
                 fg_color: self.color.with_alpha(1.0).into_linear().into(),

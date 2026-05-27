@@ -5,7 +5,6 @@ mod font;
 mod grid;
 mod pane;
 mod texture;
-mod view;
 mod window;
 
 use log::info;

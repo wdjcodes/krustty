@@ -2,9 +2,8 @@ use tracing_subscriber::EnvFilter;
 use winit::event_loop::EventLoop;
 
 mod color;
-mod grid;
 mod pty;
-mod terminal;
+mod term;
 mod ui;
 
 use crate::ui::Application;
