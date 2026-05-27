@@ -56,15 +56,11 @@ impl Terminal {
     }
 
     pub fn clear_screen(&mut self) {
-        for _ in 1..=self.cursor.max_row() {
-            if self.cursor.is_row_max() {
-                self.line_feed();
-            } else {
-                self.grid.clear_line(&self.cursor);
-                self.cursor.down(1);
-            }
+        let mut cursor = Cursor::new(self.cursor.max_row(), self.cursor.max_col());
+        for _ in 1..cursor.max_row() {
+            self.grid.clear_line(&cursor);
+            cursor.down(1);
         }
-        self.cursor.home();
     }
 
     pub fn clear_screen_to_end(&mut self) {

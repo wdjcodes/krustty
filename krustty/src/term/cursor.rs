@@ -30,12 +30,6 @@ impl Cursor {
     }
 
     #[inline]
-    pub fn home(&mut self) {
-        self.row = 1;
-        self.col = 1;
-    }
-
-    #[inline]
     pub fn home_col(&mut self) {
         self.col = 1;
     }
@@ -84,6 +78,11 @@ impl Cursor {
     #[inline]
     pub fn max_row(&self) -> usize {
         self.max_row
+    }
+
+    #[inline]
+    pub fn max_col(&self) -> usize {
+        self.max_col
     }
 
     #[inline]
