@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/wdjcodes/krustty/compare/v0.1.2...v0.1.3) - 2026-05-27
+
+### Added
+
+- add support for CUP/HVP escape sequences
+- handle full screen clear (ESC[2J)
+- add support for esc[c primary device attribute request
+
+### Fixed
+
+- clear screen behaves as expected by ansi standards
+- reverse direction of grid to match standard coordinate system
+
+### Other
+
+- re-orient grid and cursor to be consistent with ansi term
+
 ## [0.1.2](https://github.com/wdjcodes/krustty/compare/v0.1.1...v0.1.2) - 2026-05-09
 
 ### Added
