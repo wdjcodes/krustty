@@ -204,7 +204,7 @@ impl Grid {
     pub fn write_at_cursor(&mut self, cursor: &mut Cursor, cell: GridCell) {
         let (row, col) = self.cursor_to_grid_idx(cursor);
         log::debug!("Cursor: {:?} ({}, {}) '{}'", cursor, row, col, cell.c);
-        if cursor.will_wrap {
+        if cursor.will_wrap && row > 0 {
             self[row - 1].is_wrapped = true;
             cursor.will_wrap = false;
         }
@@ -238,8 +238,14 @@ impl Grid {
     }
 
     /// Returns the number of rows currently in the grid
+    #[inline]
     pub fn rows(&self) -> usize {
         self.rows.len()
+    }
+
+    #[inline]
+    pub fn pop_bottom(&mut self) {
+        self.rows.pop_back();
     }
 }
 

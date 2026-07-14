@@ -39,7 +39,7 @@ impl Terminal {
     }
 
     pub fn line_feed(&mut self) {
-        if self.cursor.is_row_max() {
+        if self.cursor.is_at_bottom() {
             self.grid.push_row();
         } else {
             self.cursor.down(1);
@@ -66,10 +66,10 @@ impl Terminal {
     pub fn clear_screen_to_end(&mut self) {
         let point = self.cursor.as_point();
         self.grid.clear_line_to_end(&self.cursor);
-        if self.cursor.is_row_max() {
+        if self.cursor.is_at_bottom() {
             return;
         }
-        while !self.cursor.is_row_max() {
+        while !self.cursor.is_at_bottom() {
             self.grid.clear_line(&self.cursor);
             self.cursor.down(1);
         }
@@ -112,7 +112,7 @@ impl Perform for Terminal {
             },
         );
         if self.cursor.is_col_max() {
-            if self.cursor.is_row_max() {
+            if self.cursor.is_at_bottom() {
                 self.grid.push_row();
             }
             self.cursor.down(1);
@@ -144,6 +144,13 @@ impl Perform for Terminal {
             }
             b'\t' => {
                 self.cursor.right(4);
+            }
+            b'M' => {
+                if self.cursor.is_at_top() {
+                    self.grid.pop_bottom();
+                } else {
+                    self.cursor.up(1);
+                }
             }
             //others Still need to be implemented
             byte => info!("Unsupported control character: 0x{:2x}", byte),

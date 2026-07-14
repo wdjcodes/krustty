@@ -22,3 +22,6 @@ target
 
 # vscode
 **/.vscode/
+
+# Internal notes
+notes/

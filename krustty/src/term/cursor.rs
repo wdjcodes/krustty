@@ -86,7 +86,7 @@ impl Cursor {
     }
 
     #[inline]
-    pub fn is_row_max(&self) -> bool {
+    pub fn is_at_bottom(&self) -> bool {
         self.row == self.max_row
     }
 
@@ -104,6 +104,11 @@ impl Cursor {
         self.max_col = std::cmp::max(1, max_cols);
         self.row = self.row.min(self.max_row);
         self.col = self.col.min(self.max_col);
+    }
+
+    #[inline]
+    pub fn is_at_top(&self) -> bool {
+        self.row == 1
     }
 }
 
