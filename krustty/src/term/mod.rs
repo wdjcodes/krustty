@@ -125,12 +125,8 @@ impl Perform for Terminal {
 
     fn execute(&mut self, byte: u8) {
         match byte {
-            b'\n' | b'D' => {
+            b'\n' => {
                 self.line_feed();
-            }
-            b'E' => {
-                self.line_feed();
-                self.carriage_return();
             }
             b'\x0B' | b'\x0C' => {
                 self.line_feed();
@@ -144,13 +140,6 @@ impl Perform for Terminal {
             }
             b'\t' => {
                 self.cursor.right(4);
-            }
-            b'M' => {
-                if self.cursor.is_at_top() {
-                    self.grid.pop_bottom();
-                } else {
-                    self.cursor.up(1);
-                }
             }
             //others Still need to be implemented
             byte => info!("Unsupported control character: 0x{:2x}", byte),
@@ -175,77 +164,6 @@ impl Perform for Terminal {
     ) {
         let grid = &mut self.grid;
         match action {
-            'c' => {
-                let code = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
-                match code {
-                    0 => {
-                        self.response_buffer.extend_from_slice(b"\x1b[?62;22c");
-                        let _ = self.event_loop.send_event(Event::SendPtyResponse);
-                    }
-                    code => info!(
-                        "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
-                        intermediates, code, action
-                    ),
-                }
-            }
-            'm' => {
-                for param in params {
-                    let code = param.first().unwrap_or(&255);
-                    match code {
-                        0 => {
-                            self.set_fg(DEFAULT_COLORS.fg.into_format());
-                            self.set_bg(DEFAULT_COLORS.bg.into_format());
-                        }
-                        7 => self.set_inverse(true),
-                        27 => self.set_inverse(false),
-                        // Foreground
-                        30 => self.set_fg(DEFAULT_COLORS.black.into_format()),
-                        31 => self.set_fg(DEFAULT_COLORS.red.into_format()),
-                        32 => self.set_fg(DEFAULT_COLORS.green.into_format()),
-                        33 => self.set_fg(DEFAULT_COLORS.yellow.into_format()),
-                        34 => self.set_fg(DEFAULT_COLORS.blue.into_format()),
-                        35 => self.set_fg(DEFAULT_COLORS.purple.into_format()),
-                        36 => self.set_fg(DEFAULT_COLORS.cyan.into_format()),
-                        37 => self.set_fg(DEFAULT_COLORS.white.into_format()),
-                        39 => self.set_fg(DEFAULT_COLORS.white.into_format()),
-                        // Background
-                        40 => self.set_bg(DEFAULT_COLORS.black.into_format()),
-                        41 => self.set_bg(DEFAULT_COLORS.red.into_format()),
-                        42 => self.set_bg(DEFAULT_COLORS.green.into_format()),
-                        43 => self.set_bg(DEFAULT_COLORS.yellow.into_format()),
-                        44 => self.set_bg(DEFAULT_COLORS.blue.into_format()),
-                        45 => self.set_bg(DEFAULT_COLORS.purple.into_format()),
-                        46 => self.set_bg(DEFAULT_COLORS.cyan.into_format()),
-                        47 => self.set_bg(DEFAULT_COLORS.white.into_format()),
-                        49 => self.set_bg(DEFAULT_COLORS.black.into_format()),
-                        // Bright Foreground
-                        90 => self.set_fg(DEFAULT_COLORS.bright_black.into_format()),
-                        91 => self.set_fg(DEFAULT_COLORS.bright_red.into_format()),
-                        92 => self.set_fg(DEFAULT_COLORS.bright_green.into_format()),
-                        93 => self.set_fg(DEFAULT_COLORS.bright_yellow.into_format()),
-                        94 => self.set_fg(DEFAULT_COLORS.bright_blue.into_format()),
-                        95 => self.set_fg(DEFAULT_COLORS.bright_purple.into_format()),
-                        96 => self.set_fg(DEFAULT_COLORS.bright_cyan.into_format()),
-                        97 => self.set_fg(DEFAULT_COLORS.bright_white.into_format()),
-                        // Bright Background
-                        100 => self.set_bg(DEFAULT_COLORS.bright_black.into_format()),
-                        101 => self.set_bg(DEFAULT_COLORS.bright_red.into_format()),
-                        102 => self.set_bg(DEFAULT_COLORS.bright_green.into_format()),
-                        103 => self.set_bg(DEFAULT_COLORS.bright_yellow.into_format()),
-                        104 => self.set_bg(DEFAULT_COLORS.bright_blue.into_format()),
-                        105 => self.set_bg(DEFAULT_COLORS.bright_purple.into_format()),
-                        106 => self.set_bg(DEFAULT_COLORS.bright_cyan.into_format()),
-                        107 => self.set_bg(DEFAULT_COLORS.bright_white.into_format()),
-
-                        code => {
-                            info!(
-                                "Unsupported SGR: Code: {} Intermediates: {:?} Params: {:?} Action: {}",
-                                code, intermediates, params, action
-                            );
-                        }
-                    }
-                }
-            }
             'A' => {
                 let mut count = params.iter().next().and_then(|p| p.first()).unwrap_or(&1);
                 count = if *count == 0 { &1 } else { count };
@@ -324,6 +242,77 @@ impl Perform for Terminal {
                     }
                 }
             }
+            'c' => {
+                let code = params.iter().next().and_then(|p| p.first()).unwrap_or(&0);
+                match code {
+                    0 => {
+                        self.response_buffer.extend_from_slice(b"\x1b[?62;22c");
+                        let _ = self.event_loop.send_event(Event::SendPtyResponse);
+                    }
+                    code => info!(
+                        "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
+                        intermediates, code, action
+                    ),
+                }
+            }
+            'm' => {
+                for param in params {
+                    let code = param.first().unwrap_or(&255);
+                    match code {
+                        0 => {
+                            self.set_fg(DEFAULT_COLORS.fg.into_format());
+                            self.set_bg(DEFAULT_COLORS.bg.into_format());
+                        }
+                        7 => self.set_inverse(true),
+                        27 => self.set_inverse(false),
+                        // Foreground
+                        30 => self.set_fg(DEFAULT_COLORS.black.into_format()),
+                        31 => self.set_fg(DEFAULT_COLORS.red.into_format()),
+                        32 => self.set_fg(DEFAULT_COLORS.green.into_format()),
+                        33 => self.set_fg(DEFAULT_COLORS.yellow.into_format()),
+                        34 => self.set_fg(DEFAULT_COLORS.blue.into_format()),
+                        35 => self.set_fg(DEFAULT_COLORS.purple.into_format()),
+                        36 => self.set_fg(DEFAULT_COLORS.cyan.into_format()),
+                        37 => self.set_fg(DEFAULT_COLORS.white.into_format()),
+                        39 => self.set_fg(DEFAULT_COLORS.white.into_format()),
+                        // Background
+                        40 => self.set_bg(DEFAULT_COLORS.black.into_format()),
+                        41 => self.set_bg(DEFAULT_COLORS.red.into_format()),
+                        42 => self.set_bg(DEFAULT_COLORS.green.into_format()),
+                        43 => self.set_bg(DEFAULT_COLORS.yellow.into_format()),
+                        44 => self.set_bg(DEFAULT_COLORS.blue.into_format()),
+                        45 => self.set_bg(DEFAULT_COLORS.purple.into_format()),
+                        46 => self.set_bg(DEFAULT_COLORS.cyan.into_format()),
+                        47 => self.set_bg(DEFAULT_COLORS.white.into_format()),
+                        49 => self.set_bg(DEFAULT_COLORS.black.into_format()),
+                        // Bright Foreground
+                        90 => self.set_fg(DEFAULT_COLORS.bright_black.into_format()),
+                        91 => self.set_fg(DEFAULT_COLORS.bright_red.into_format()),
+                        92 => self.set_fg(DEFAULT_COLORS.bright_green.into_format()),
+                        93 => self.set_fg(DEFAULT_COLORS.bright_yellow.into_format()),
+                        94 => self.set_fg(DEFAULT_COLORS.bright_blue.into_format()),
+                        95 => self.set_fg(DEFAULT_COLORS.bright_purple.into_format()),
+                        96 => self.set_fg(DEFAULT_COLORS.bright_cyan.into_format()),
+                        97 => self.set_fg(DEFAULT_COLORS.bright_white.into_format()),
+                        // Bright Background
+                        100 => self.set_bg(DEFAULT_COLORS.bright_black.into_format()),
+                        101 => self.set_bg(DEFAULT_COLORS.bright_red.into_format()),
+                        102 => self.set_bg(DEFAULT_COLORS.bright_green.into_format()),
+                        103 => self.set_bg(DEFAULT_COLORS.bright_yellow.into_format()),
+                        104 => self.set_bg(DEFAULT_COLORS.bright_blue.into_format()),
+                        105 => self.set_bg(DEFAULT_COLORS.bright_purple.into_format()),
+                        106 => self.set_bg(DEFAULT_COLORS.bright_cyan.into_format()),
+                        107 => self.set_bg(DEFAULT_COLORS.bright_white.into_format()),
+
+                        code => {
+                            info!(
+                                "Unsupported SGR: Code: {} Intermediates: {:?} Params: {:?} Action: {}",
+                                code, intermediates, params, action
+                            );
+                        }
+                    }
+                }
+            }
             _ => {
                 info!(
                     "Unsupported CSI: Intermediates: {:?} Params: {:?} Action: {}",
@@ -333,7 +322,30 @@ impl Perform for Terminal {
         }
     }
 
-    fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, _byte: u8) {}
+    fn esc_dispatch(&mut self, intermediates: &[u8], ignore: bool, byte: u8) {
+        match byte {
+            b'D' => {
+                self.line_feed();
+            }
+            b'E' => {
+                self.line_feed();
+                self.carriage_return();
+            }
+            b'M' => {
+                if self.cursor.is_at_top() {
+                    self.grid.pop_bottom();
+                } else {
+                    self.cursor.up(1);
+                }
+            }
+            _ => {
+                info!(
+                    "Unsupported ESC: Intermediates: {:?} Ignore: {:?} Byte: {}",
+                    intermediates, ignore, byte as char
+                );
+            }
+        }
+    }
 
     fn terminated(&self) -> bool {
         false
