@@ -3,6 +3,7 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window};
 
 use crate::{
+    color::DEFAULT_PALETTE,
     pty::Pty,
     ui::{Application, Event, GpuHandle, font::GlyphCache, pane::Pane},
 };
@@ -59,6 +60,7 @@ impl WindowContext {
             gpu.clone(),
             &config,
             app.cache.clone(),
+            Rc::new(RefCell::new(DEFAULT_PALETTE)),
         );
 
         Ok(Self {

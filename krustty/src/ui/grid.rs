@@ -1,9 +1,9 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use wgpu::util::DeviceExt;
 
 use crate::{
-    color::{DEFAULT_COLORS, Rgb},
+    color::{Color, ColorPalette, Component::Bg},
     ui::{CELL_HEIGHT, CELL_WIDTH, texture::Texture},
 };
 
@@ -25,6 +25,7 @@ pub struct GridRenderer {
     view_bind_group: wgpu::BindGroup,
     vertex_buff: wgpu::Buffer,
     globals_buff: wgpu::Buffer,
+    color_palette: Rc<RefCell<ColorPalette>>,
 }
 
 impl GridRenderer {
@@ -35,6 +36,7 @@ impl GridRenderer {
         queue: Rc<wgpu::Queue>,
         config: &wgpu::SurfaceConfiguration,
         atlas_texture: Rc<Texture>,
+        color_palette: Rc<RefCell<ColorPalette>>,
     ) -> Self {
         let cols = (width as f32 / CELL_WIDTH) as usize;
         let rows = (height as f32 / CELL_HEIGHT) as usize;
@@ -144,6 +146,7 @@ impl GridRenderer {
             view_bind_group,
             globals,
             globals_buff,
+            color_palette,
         }
     }
 
@@ -154,8 +157,12 @@ impl GridRenderer {
             bytemuck::cast_slice(&self.instances),
         );
 
-        let sbg: Rgb = DEFAULT_COLORS.bg.into_format();
-        let bg = sbg.into_linear();
+        let bg = self
+            .color_palette
+            .borrow()
+            .resolve_color(Color::Default(Bg))
+            .into_linear();
+        // let bg = sbg.into_linear();
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
