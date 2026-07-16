@@ -6,7 +6,11 @@ pub mod cursor;
 pub mod grid;
 
 use crate::{
-    color::{DEFAULT_COLORS, Rgb},
+    color::{
+        Color,
+        Component::{Bg, Fg},
+        NamedColor,
+    },
     term::grid::{CellFlags, GridCell},
     ui::Event,
 };
@@ -78,13 +82,13 @@ impl Terminal {
     }
 
     #[inline]
-    pub fn set_fg(&mut self, fg: Rgb) {
-        self.template_cell.fg = fg;
+    pub fn set_fg<T: Into<Color>>(&mut self, fg: T) {
+        self.template_cell.fg = fg.into();
     }
 
     #[inline]
-    pub fn set_bg(&mut self, bg: Rgb) {
-        self.template_cell.bg = bg;
+    pub fn set_bg<T: Into<Color>>(&mut self, bg: T) {
+        self.template_cell.bg = bg.into();
     }
 
     #[inline]
@@ -260,49 +264,50 @@ impl Perform for Terminal {
                     let code = param.first().unwrap_or(&255);
                     match code {
                         0 => {
-                            self.set_fg(DEFAULT_COLORS.fg.into_format());
-                            self.set_bg(DEFAULT_COLORS.bg.into_format());
+                            self.set_fg(Color::Default(Fg));
+                            self.set_bg(Color::Default(Bg));
+                            self.set_inverse(false);
                         }
                         7 => self.set_inverse(true),
                         27 => self.set_inverse(false),
                         // Foreground
-                        30 => self.set_fg(DEFAULT_COLORS.black.into_format()),
-                        31 => self.set_fg(DEFAULT_COLORS.red.into_format()),
-                        32 => self.set_fg(DEFAULT_COLORS.green.into_format()),
-                        33 => self.set_fg(DEFAULT_COLORS.yellow.into_format()),
-                        34 => self.set_fg(DEFAULT_COLORS.blue.into_format()),
-                        35 => self.set_fg(DEFAULT_COLORS.purple.into_format()),
-                        36 => self.set_fg(DEFAULT_COLORS.cyan.into_format()),
-                        37 => self.set_fg(DEFAULT_COLORS.white.into_format()),
-                        39 => self.set_fg(DEFAULT_COLORS.white.into_format()),
+                        30 => self.set_fg(NamedColor::Black),
+                        31 => self.set_fg(NamedColor::Red),
+                        32 => self.set_fg(NamedColor::Green),
+                        33 => self.set_fg(NamedColor::Yellow),
+                        34 => self.set_fg(NamedColor::Blue),
+                        35 => self.set_fg(NamedColor::Magenta),
+                        36 => self.set_fg(NamedColor::Cyan),
+                        37 => self.set_fg(NamedColor::White),
+                        39 => self.set_fg(Color::Default(Fg)),
                         // Background
-                        40 => self.set_bg(DEFAULT_COLORS.black.into_format()),
-                        41 => self.set_bg(DEFAULT_COLORS.red.into_format()),
-                        42 => self.set_bg(DEFAULT_COLORS.green.into_format()),
-                        43 => self.set_bg(DEFAULT_COLORS.yellow.into_format()),
-                        44 => self.set_bg(DEFAULT_COLORS.blue.into_format()),
-                        45 => self.set_bg(DEFAULT_COLORS.purple.into_format()),
-                        46 => self.set_bg(DEFAULT_COLORS.cyan.into_format()),
-                        47 => self.set_bg(DEFAULT_COLORS.white.into_format()),
-                        49 => self.set_bg(DEFAULT_COLORS.black.into_format()),
+                        40 => self.set_bg(NamedColor::Black),
+                        41 => self.set_bg(NamedColor::Red),
+                        42 => self.set_bg(NamedColor::Green),
+                        43 => self.set_bg(NamedColor::Yellow),
+                        44 => self.set_bg(NamedColor::Blue),
+                        45 => self.set_bg(NamedColor::Magenta),
+                        46 => self.set_bg(NamedColor::Cyan),
+                        47 => self.set_bg(NamedColor::White),
+                        49 => self.set_bg(Color::Default(Bg)),
                         // Bright Foreground
-                        90 => self.set_fg(DEFAULT_COLORS.bright_black.into_format()),
-                        91 => self.set_fg(DEFAULT_COLORS.bright_red.into_format()),
-                        92 => self.set_fg(DEFAULT_COLORS.bright_green.into_format()),
-                        93 => self.set_fg(DEFAULT_COLORS.bright_yellow.into_format()),
-                        94 => self.set_fg(DEFAULT_COLORS.bright_blue.into_format()),
-                        95 => self.set_fg(DEFAULT_COLORS.bright_purple.into_format()),
-                        96 => self.set_fg(DEFAULT_COLORS.bright_cyan.into_format()),
-                        97 => self.set_fg(DEFAULT_COLORS.bright_white.into_format()),
+                        90 => self.set_fg(NamedColor::BrightBlack),
+                        91 => self.set_fg(NamedColor::BrightRed),
+                        92 => self.set_fg(NamedColor::BrightGreen),
+                        93 => self.set_fg(NamedColor::BrightYellow),
+                        94 => self.set_fg(NamedColor::BrightBlue),
+                        95 => self.set_fg(NamedColor::BrightMagenta),
+                        96 => self.set_fg(NamedColor::BrightCyan),
+                        97 => self.set_fg(NamedColor::BrightWhite),
                         // Bright Background
-                        100 => self.set_bg(DEFAULT_COLORS.bright_black.into_format()),
-                        101 => self.set_bg(DEFAULT_COLORS.bright_red.into_format()),
-                        102 => self.set_bg(DEFAULT_COLORS.bright_green.into_format()),
-                        103 => self.set_bg(DEFAULT_COLORS.bright_yellow.into_format()),
-                        104 => self.set_bg(DEFAULT_COLORS.bright_blue.into_format()),
-                        105 => self.set_bg(DEFAULT_COLORS.bright_purple.into_format()),
-                        106 => self.set_bg(DEFAULT_COLORS.bright_cyan.into_format()),
-                        107 => self.set_bg(DEFAULT_COLORS.bright_white.into_format()),
+                        100 => self.set_bg(NamedColor::BrightBlack),
+                        101 => self.set_bg(NamedColor::BrightRed),
+                        102 => self.set_bg(NamedColor::BrightGreen),
+                        103 => self.set_bg(NamedColor::BrightYellow),
+                        104 => self.set_bg(NamedColor::BrightBlue),
+                        105 => self.set_bg(NamedColor::BrightMagenta),
+                        106 => self.set_bg(NamedColor::BrightCyan),
+                        107 => self.set_bg(NamedColor::BrightWhite),
 
                         code => {
                             info!(

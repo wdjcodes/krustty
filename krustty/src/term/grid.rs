@@ -7,7 +7,10 @@ use std::{
 };
 
 use crate::{
-    color::{DEFAULT_COLORS, Rgb},
+    color::{
+        Color,
+        Component::{Bg, Fg},
+    },
     term::cursor::Cursor,
 };
 
@@ -32,8 +35,8 @@ bitflags! {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GridCell {
     pub c: char,
-    pub fg: Rgb,
-    pub bg: Rgb,
+    pub fg: Color,
+    pub bg: Color,
     pub flags: CellFlags,
 }
 
@@ -41,8 +44,8 @@ impl Default for GridCell {
     fn default() -> Self {
         GridCell {
             c: ' ',
-            fg: DEFAULT_COLORS.fg.into_format(),
-            bg: DEFAULT_COLORS.bg.into_format(),
+            fg: Color::Default(Fg),
+            bg: Color::Default(Bg),
             flags: CellFlags::NONE,
         }
     }

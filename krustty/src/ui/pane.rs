@@ -8,6 +8,7 @@ use palette::WithAlpha;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
+    color::ColorPalette,
     pty::Pty,
     term::{Terminal, cursor::Cursor, grid::CellFlags},
     ui::{
@@ -29,6 +30,7 @@ pub struct Pane {
     scroll_rows: usize,
     /// The height of the viewport in rows
     height_rows: usize,
+    color_palette: Rc<RefCell<ColorPalette>>,
 }
 
 const CELL_WIDTH: f32 = 10.0;
@@ -42,6 +44,7 @@ impl Pane {
         gpu: Rc<GpuHandle>,
         config: &wgpu::SurfaceConfiguration,
         cache: Rc<RefCell<GlyphCache>>,
+        color_palette: Rc<RefCell<ColorPalette>>,
     ) -> Self {
         let rows = (height / CELL_HEIGHT as u32) as usize;
         let cols = (width / CELL_WIDTH as u32) as usize;
@@ -57,10 +60,17 @@ impl Pane {
             gpu.queue.clone(),
             config,
             cache.borrow_mut().get_atlas_or_init(&gpu.device),
+            color_palette.clone(),
         );
 
-        let cursor_render =
-            CursorRenderer::new(width, height, gpu.device.clone(), gpu.queue.clone(), config);
+        let cursor_render = CursorRenderer::new(
+            width,
+            height,
+            gpu.device.clone(),
+            gpu.queue.clone(),
+            config,
+            color_palette.clone(),
+        );
 
         Self {
             cursor_render,
@@ -71,6 +81,7 @@ impl Pane {
             scroll_queued: 0.0,
             scroll_rows: 0,
             height_rows: rows,
+            color_palette,
         }
     }
 
@@ -130,8 +141,20 @@ impl Pane {
                 let ay = glyph.y as f32 / atlas_size;
                 let az = ax + CELL_WIDTH / atlas_size;
                 let aw = ay + CELL_HEIGHT / atlas_size;
-                let mut fg_color = cell.fg.with_alpha(1.0).into_linear().into();
-                let mut bg_color = cell.bg.with_alpha(1.0).into_linear().into();
+                let mut fg_color = self
+                    .color_palette
+                    .borrow()
+                    .resolve_color(cell.fg)
+                    .with_alpha(1.0)
+                    .into_linear()
+                    .into();
+                let mut bg_color = self
+                    .color_palette
+                    .borrow()
+                    .resolve_color(cell.bg)
+                    .with_alpha(1.0)
+                    .into_linear()
+                    .into();
                 if cell.flags.contains(CellFlags::INVERSE) {
                     std::mem::swap(&mut fg_color, &mut bg_color);
                 }

@@ -1,10 +1,10 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use palette::WithAlpha;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    color::{DEFAULT_COLORS, Rgb},
+    color::ColorPalette,
     term::cursor::Cursor,
     ui::{CELL_HEIGHT, CELL_WIDTH},
 };
@@ -19,7 +19,7 @@ pub struct CursorRenderer {
     vertex_buff: wgpu::Buffer,
     globals_buff: wgpu::Buffer,
     cursor_inst: Option<CursorInstance>,
-    color: Rgb,
+    color_palette: Rc<RefCell<ColorPalette>>,
 }
 
 impl CursorRenderer {
@@ -29,6 +29,7 @@ impl CursorRenderer {
         device: Rc<wgpu::Device>,
         queue: Rc<wgpu::Queue>,
         config: &wgpu::SurfaceConfiguration,
+        color_palette: Rc<RefCell<ColorPalette>>,
     ) -> Self {
         let shader = device.create_shader_module(wgpu::include_wgsl!("./shaders/solid_rect.wgsl"));
 
@@ -124,8 +125,6 @@ impl CursorRenderer {
             label: Some("Rect: globals_bind_group"),
         });
 
-        let color = DEFAULT_COLORS.white.into_format();
-
         Self {
             _device: device,
             queue,
@@ -136,7 +135,7 @@ impl CursorRenderer {
             globals,
             globals_buff,
             cursor_inst: None,
-            color,
+            color_palette,
         }
     }
 
@@ -148,7 +147,13 @@ impl CursorRenderer {
                     (cursor.row() - 1) as f32 * CELL_HEIGHT,
                 ],
                 size: [2.0, CELL_HEIGHT],
-                fg_color: self.color.with_alpha(1.0).into_linear().into(),
+                fg_color: self
+                    .color_palette
+                    .borrow()
+                    .get_cursor_color()
+                    .with_alpha(1.0)
+                    .into_linear()
+                    .into(),
             });
         } else {
             self.cursor_inst = None;
