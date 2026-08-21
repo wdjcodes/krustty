@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/wdjcodes/krustty/compare/v0.1.2...v0.1.3) - 2026-08-21
+
+### Added
+
+- add sgr parsing for 256 and true color
+- add support for CUP/HVP escape sequences
+- handle full screen clear (ESC[2J)
+- add support for esc[c primary device attribute request
+
+### Fixed
+
+- move esc sequences out of execute into esc_dispatch ([#47](https://github.com/wdjcodes/krustty/pull/47))
+- resolve bugs when at top and bottom rows
+- clear screen behaves as expected by ansi standards
+- reverse direction of grid to match standard coordinate system
+
+### Other
+
+- improve color support for 256 and true color ([#48](https://github.com/wdjcodes/krustty/pull/48))
+- re-orient grid and cursor to be consistent with ansi term
+
 ## [0.1.2](https://github.com/wdjcodes/krustty/compare/v0.1.1...v0.1.2) - 2026-05-09
 
 ### Added
