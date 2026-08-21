@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use wgpu::util::DeviceExt;
 
 use crate::{
-    color::{Color, ColorPalette, Component::Bg},
+    color::{Color, ColorPalette},
     ui::{CELL_HEIGHT, CELL_WIDTH, texture::Texture},
 };
 
@@ -160,9 +160,8 @@ impl GridRenderer {
         let bg = self
             .color_palette
             .borrow()
-            .resolve_color(Color::Default(Bg))
+            .resolve_color(Color::DefaultBg)
             .into_linear();
-        // let bg = sbg.into_linear();
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),

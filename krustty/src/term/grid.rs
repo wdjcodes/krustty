@@ -6,13 +6,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use crate::{
-    color::{
-        Color,
-        Component::{Bg, Fg},
-    },
-    term::cursor::Cursor,
-};
+use crate::{color::Color, term::cursor::Cursor};
 
 bitflags! {
     /// Text styling attributes
@@ -44,8 +38,8 @@ impl Default for GridCell {
     fn default() -> Self {
         GridCell {
             c: ' ',
-            fg: Color::Default(Fg),
-            bg: Color::Default(Bg),
+            fg: Color::DefaultFg,
+            bg: Color::DefaultBg,
             flags: CellFlags::NONE,
         }
     }

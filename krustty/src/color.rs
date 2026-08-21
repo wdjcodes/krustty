@@ -10,12 +10,9 @@ pub type Rgb = Srgb;
 pub enum Color {
     Named(NamedColor),
     Indexed(u8),
-    #[expect(
-        unused,
-        reason = "Will be used when more support for true color is added"
-    )]
     Rgb(Rgb),
-    Default(Component),
+    DefaultFg,
+    DefaultBg,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -37,12 +34,6 @@ pub enum NamedColor {
     BrightMagenta = 13,
     BrightCyan = 14,
     BrightWhite = 15,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Component {
-    Fg,
-    Bg,
 }
 
 impl From<NamedColor> for Color {
@@ -86,10 +77,8 @@ impl ColorPalette {
             Color::Named(name) => self.colors[name as usize],
             Color::Indexed(idx) => self.colors[idx as usize],
             Color::Rgb(rgb) => rgb,
-            Color::Default(comp) => match comp {
-                Component::Fg => self.default_fg,
-                Component::Bg => self.default_bg,
-            },
+            Color::DefaultFg => self.default_fg,
+            Color::DefaultBg => self.default_bg,
         }
     }
 
@@ -98,26 +87,43 @@ impl ColorPalette {
         self.cursor_color
     }
 
-    const fn empty() -> Self {
+    const fn intialize() -> Self {
+        let mut colors = [srgb!("#000000"); 256];
+
+        // Initialize 6x6x6 Color cube for 256 color space
+        let mut i = 0;
+        while i < 216 {
+            let mut c = i;
+            let mut r = c / 36;
+            c = c - (r * 36);
+            let mut g = c / 6;
+            c = c - (g * 6);
+            let mut b = c;
+            r = if r > 0 { r * 40 + 55 } else { 0 };
+            g = if g > 0 { g * 40 + 55 } else { 0 };
+            b = if b > 0 { b * 40 + 55 } else { 0 };
+            colors[i + 16] = Srgb::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0);
+            i += 1;
+        }
+
+        // Initialize 24 color grayscale ramp
+        i = 0;
+        while i < 24 {
+            let bright = (8 + i * 10) as f32 / 255.0;
+            colors[i + 232] = Srgb::new(bright, bright, bright);
+            i += 1;
+        }
+
         Self {
-            colors: [srgb!("#000000"); 256],
+            colors,
             default_fg: srgb!("#000000"),
             default_bg: srgb!("#000000"),
             cursor_color: srgb!("#000000"),
         }
     }
 
-    const fn set_named_color(mut self, name: NamedColor, value: Rgb) -> Self {
+    const fn set_color(mut self, name: NamedColor, value: Rgb) -> Self {
         self.colors[name as usize] = value;
-        self
-    }
-
-    #[expect(
-        unused,
-        reason = "will be used when more support for 256 color is added"
-    )]
-    const fn set_indexed_color(mut self, idx: u8, value: Rgb) -> Self {
-        self.colors[idx as usize] = value;
         self
     }
 
@@ -137,39 +143,39 @@ impl ColorPalette {
     }
 }
 
-pub const DEFAULT_PALETTE: ColorPalette = ColorPalette::empty()
+pub const DEFAULT_PALETTE: ColorPalette = ColorPalette::intialize()
     // #232627
-    .set_named_color(Black, srgb!("#232627"))
+    .set_color(Black, srgb!("#232627"))
     // #ed1515
-    .set_named_color(Red, srgb!("#ed1515"))
+    .set_color(Red, srgb!("#ed1515"))
     // #11d116
-    .set_named_color(Green, srgb!("#11d116"))
+    .set_color(Green, srgb!("#11d116"))
     // #f67400
-    .set_named_color(Yellow, srgb!("#f67400"))
+    .set_color(Yellow, srgb!("#f67400"))
     // #1d99f3
-    .set_named_color(Blue, srgb!("#1d99f3"))
+    .set_color(Blue, srgb!("#1d99f3"))
     // #9b59b6
-    .set_named_color(Magenta, srgb!("#9b59b6"))
+    .set_color(Magenta, srgb!("#9b59b6"))
     // #1abc9c
-    .set_named_color(Cyan, srgb!("#1abc9c"))
+    .set_color(Cyan, srgb!("#1abc9c"))
     // #fcfcfc
-    .set_named_color(White, srgb!("#fcfcfc"))
+    .set_color(White, srgb!("#fcfcfc"))
     // #7f8c8d
-    .set_named_color(BrightBlack, srgb!("#7f8c8d"))
+    .set_color(BrightBlack, srgb!("#7f8c8d"))
     // #c0392b
-    .set_named_color(BrightRed, srgb!("#c0392b"))
+    .set_color(BrightRed, srgb!("#c0392b"))
     // #1cdc9a
-    .set_named_color(BrightGreen, srgb!("#1cdc9a"))
+    .set_color(BrightGreen, srgb!("#1cdc9a"))
     // #fdbc4b
-    .set_named_color(BrightYellow, srgb!("#fdbc4b"))
+    .set_color(BrightYellow, srgb!("#fdbc4b"))
     // #3daee9
-    .set_named_color(BrightBlue, srgb!("#3daee9"))
+    .set_color(BrightBlue, srgb!("#3daee9"))
     // #8e44ad
-    .set_named_color(BrightMagenta, srgb!("#8e44ad"))
+    .set_color(BrightMagenta, srgb!("#8e44ad"))
     // #16a085
-    .set_named_color(BrightCyan, srgb!("#16a085"))
+    .set_color(BrightCyan, srgb!("#16a085"))
     // #ffffff
-    .set_named_color(BrightWhite, srgb!("#ffffff"))
+    .set_color(BrightWhite, srgb!("#ffffff"))
     // #fcfcfc
     .set_default_fg(srgb!("#fcfcfc"))
     // #232627

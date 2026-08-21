@@ -1,16 +1,13 @@
 use log::info;
-use vte::Perform;
+use palette::rgb::Rgb;
+use vte::{ParamsIter, Perform};
 use winit::event_loop::EventLoopProxy;
 
 pub mod cursor;
 pub mod grid;
 
 use crate::{
-    color::{
-        Color,
-        Component::{Bg, Fg},
-        NamedColor,
-    },
+    color::{Color, NamedColor},
     term::grid::{CellFlags, GridCell},
     ui::Event,
 };
@@ -260,12 +257,14 @@ impl Perform for Terminal {
                 }
             }
             'm' => {
-                for param in params {
+                let mut pi = params.iter();
+                while let Some(param) = pi.next() {
+                    // let param = pi.next().unwrap_or(&[]);
                     let code = param.first().unwrap_or(&255);
                     match code {
                         0 => {
-                            self.set_fg(Color::Default(Fg));
-                            self.set_bg(Color::Default(Bg));
+                            self.set_fg(Color::DefaultFg);
+                            self.set_bg(Color::DefaultBg);
                             self.set_inverse(false);
                         }
                         7 => self.set_inverse(true),
@@ -279,7 +278,12 @@ impl Perform for Terminal {
                         35 => self.set_fg(NamedColor::Magenta),
                         36 => self.set_fg(NamedColor::Cyan),
                         37 => self.set_fg(NamedColor::White),
-                        39 => self.set_fg(Color::Default(Fg)),
+                        38 => {
+                            if let Some(color) = parse_sgr(&mut pi) {
+                                self.set_fg(color);
+                            }
+                        }
+                        39 => self.set_fg(Color::DefaultFg),
                         // Background
                         40 => self.set_bg(NamedColor::Black),
                         41 => self.set_bg(NamedColor::Red),
@@ -289,7 +293,12 @@ impl Perform for Terminal {
                         45 => self.set_bg(NamedColor::Magenta),
                         46 => self.set_bg(NamedColor::Cyan),
                         47 => self.set_bg(NamedColor::White),
-                        49 => self.set_bg(Color::Default(Bg)),
+                        48 => {
+                            if let Some(color) = parse_sgr(&mut pi) {
+                                self.set_bg(color);
+                            }
+                        }
+                        49 => self.set_bg(Color::DefaultBg),
                         // Bright Foreground
                         90 => self.set_fg(NamedColor::BrightBlack),
                         91 => self.set_fg(NamedColor::BrightRed),
@@ -354,5 +363,47 @@ impl Perform for Terminal {
 
     fn terminated(&self) -> bool {
         false
+    }
+}
+
+fn parse_sgr(pi: &mut ParamsIter) -> Option<Color> {
+    let p = pi.next()?;
+    let color_mode = if let Some(param) = p.iter().next() {
+        param
+    } else {
+        log::debug!("sgr missing params");
+        return None;
+    };
+    match *color_mode {
+        2 => {
+            if let Some([r, g, b]) = [None as Option<u16>; 3]
+                .map(|_| pi.next().and_then(|p| p.first()))
+                .into_iter()
+                .collect::<Option<Vec<&u16>>>()
+                .and_then(|v| TryInto::<[&u16; 3]>::try_into(v).ok())
+            {
+                Some(Color::Rgb(Rgb::new(
+                    *r as f32 / 255.0,
+                    *g as f32 / 255.0,
+                    *b as f32 / 255.0,
+                )))
+            } else {
+                log::debug!("sgr expected r,g,b values");
+                None
+            }
+        }
+        5 => {
+            if let Some(idx) = pi.next().and_then(|p| p.first()) {
+                log::debug!("Setting color: {:?}", idx);
+                Some(Color::from(*idx as u8))
+            } else {
+                log::debug!("sgr expected color index value");
+                None
+            }
+        }
+        _ => {
+            log::debug!("sgr invalid sub param value");
+            None
+        }
     }
 }
